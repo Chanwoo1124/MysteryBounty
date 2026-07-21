@@ -1,0 +1,55 @@
+/* HGP 미스터리 바운티 디자인 토큰 — 핸드오프 문서 기준 */
+:root {
+  /* 배경 */
+  --bg-base: #0e0903;
+  --bg-base-radial: radial-gradient(ellipse 90% 70% at 50% -10%, #241304 0%, #0e0903 60%);
+  --bg-login: #0a0a0e;
+  --surface: #1d1309;
+  --surface-end: #140d05;
+  --surface-card: linear-gradient(180deg, #1d1309 0%, #140d05 100%);
+  --surface-input: #140d05;
+  --surface-input-login: #14141a;
+
+  /* 골드 */
+  --gold: #f5c64a;
+  --gold-light: #ffe9a8;
+  --gold-lighter: #fff3cc;
+  --gold-dark: #b8860b;
+  --gold-dark-2: #c9962b;
+  --gold-border: rgba(212, 168, 84, 0.3);
+  --gold-border-strong: rgba(245, 198, 74, 0.7);
+  --gold-ink: #2a1a05; /* 골드 버튼 위 텍스트 */
+
+  /* 레드 / 블루 */
+  --red: #c81e2e;
+  --red-login: #d91e2a;
+  --red-bright: #ef3340;
+  --red-deep-a: #8a1620;
+  --red-deep-b: #5c0d14;
+  --orange: #ef9a4a;
+  --blue: #1b4f9c;
+
+  /* 텍스트 */
+  --text: #f7f1e3;
+  --text-login: #f5f5f7;
+  --text-dim: rgba(247, 241, 227, 0.5);
+  --text-dimmer: rgba(247, 241, 227, 0.4);
+  --text-faint: rgba(247, 241, 227, 0.28);
+
+  /* 그라데이션 */
+  --gold-text-gradient: linear-gradient(180deg, #fff3cc 10%, #f5c64a 55%, #b8860b 90%);
+  --gold-text-gradient-sm: linear-gradient(180deg, #ffe9a8, #f5c64a 60%, #b8860b);
+  --dim-text-gradient: linear-gradient(180deg, rgba(247, 241, 227, 0.45), rgba(247, 241, 227, 0.3));
+  --gold-btn-gradient: linear-gradient(180deg, #f5c64a, #c9962b);
+  --gold-btn-gradient-hover: linear-gradient(180deg, #ffe9a8, #f5c64a);
+
+  /* 그림자 */
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.6);
+  --glow-gold: 0 0 30px rgba(245, 198, 74, 0.4);
+
+  /* 폰트 */
+  --font: 'Archivo', 'Noto Sans KR', sans-serif;
+  --font-kr: 'Noto Sans KR', sans-serif;
+}
+
+/* 브랜드 특성: 모든 모서리는 각짐 (border-radius 0) */

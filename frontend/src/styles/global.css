@@ -1,0 +1,166 @@
+@import './tokens.css';
+@import './animations.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--gold);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--gold-light);
+}
+
+button {
+  font-family: var(--font);
+  border-radius: 0;
+}
+
+input {
+  outline: none;
+  border-radius: 0;
+  font-family: var(--font-kr);
+}
+input::placeholder {
+  color: var(--text-faint);
+}
+/* 숫자 입력의 스피너 제거 — 대형 화면에서 시각적 노이즈 */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* 앱 셸 */
+.app-shell {
+  min-height: 100vh;
+  background: var(--bg-base-radial);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 금액 등 골드 그라데이션 텍스트 */
+.gold-text {
+  background: var(--gold-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gold-text-sm {
+  background: var(--gold-text-gradient-sm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 기울임 모티프: 컨테이너를 skew 하고 내부 콘텐츠를 되돌린다 */
+.skew {
+  transform: skewX(-12deg);
+}
+.skew > .unskew,
+.unskew {
+  display: inline-block;
+  transform: skewX(12deg);
+}
+
+/* 화면 타이틀 (한글 + 영문 + 골드 스트라이프) */
+.screen-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.screen-title {
+  font-style: italic;
+  font-weight: 900;
+  font-size: 30px;
+  color: var(--gold-light);
+}
+.screen-title-en {
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.22em;
+  color: var(--gold-dark);
+}
+.gold-stripe {
+  width: 120px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-dark));
+  transform: skewX(-24deg);
+}
+
+/* 버튼 프리셋 */
+.btn-gold {
+  background: var(--gold-btn-gradient);
+  border: 1px solid var(--gold-light);
+  color: var(--gold-ink);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-gold:hover {
+  background: var(--gold-btn-gradient-hover);
+}
+.btn-gold:active {
+  transform: scale(0.98);
+}
+
+.btn-gold-outline {
+  background: transparent;
+  border: 1px solid rgba(245, 198, 74, 0.5);
+  color: var(--gold);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-gold-outline:hover {
+  background: rgba(245, 198, 74, 0.12);
+  border-color: var(--gold);
+}
+
+.btn-red-tint {
+  background: rgba(200, 30, 46, 0.15);
+  border: 1px solid rgba(200, 30, 46, 0.6);
+  color: var(--text);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-red-tint:hover {
+  background: rgba(200, 30, 46, 0.3);
+}

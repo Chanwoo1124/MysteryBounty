@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# ===== Backend (Gradle / Spring) =====
+backend/build/
+backend/.gradle/
+backend/out/
+backend/bin/
+
+# ===== Frontend (Node / Vite) =====
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# 로그
+*.log
+
+# 환경 변수
+.env
+.env.*
+!.env.example
