@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
 import { StatCard } from '@/components/StatCard';
 import { formatKr, manToWon } from '@/lib/format';
+import { ApiError } from '@/api/client';
 
 /**
  * 바운티 풀 구성 — 금액×개수 쌍을 입력한다.
@@ -9,19 +11,41 @@ import { formatKr, manToWon } from '@/lib/format';
  */
 export function TicketSetup() {
   const navigate = useNavigate();
-  const { rows, setRows, commitRows } = useBounty();
+  const { rows, setRows, currentTournamentId, loadTiersIntoRows, saveAndStart } = useBounty();
+  const [busy, setBusy] = useState(false);
+
+  // 선택된 대회가 없으면 목록으로. 있으면 기존 티어를 입력 폼에 채운다.
+  useEffect(() => {
+    if (!currentTournamentId) {
+      navigate('/dashboard');
+      return;
+    }
+    loadTiersIntoRows().catch((err) => {
+      if (err instanceof ApiError && err.status === 401) navigate('/login');
+    });
+  }, [currentTournamentId, loadTiersIntoRows, navigate]);
 
   const totalCount = rows.reduce((a, r) => a + r.count, 0);
   const totalPrize = rows.reduce((a, r) => a + manToWon(r.amount) * r.count, 0);
 
   const updateRow = (index: number, field: 'amount' | 'count', value: string) => {
-    const parsed = Math.max(0, parseInt(value || '0', 10) || 0);
+    // 숫자 이외 문자·앞자리 0 제거 후 정수로 변환 (빈 값은 0)
+    const digits = value.replace(/[^0-9]/g, '');
+    const parsed = digits === '' ? 0 : parseInt(digits, 10);
     setRows(rows.map((r, i) => (i === index ? { ...r, [field]: parsed } : r)));
   };
 
-  const start = () => {
-    commitRows();
-    navigate('/board');
+  const start = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await saveAndStart();
+      navigate('/board');
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : '대회 시작에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -40,6 +64,20 @@ export function TicketSetup() {
       <div className="screen-title-row">
         <div className="screen-title">티켓 구성</div>
         <div className="screen-title-en">BOUNTY POOL SETUP</div>
+        <button
+          className="btn-gold-outline"
+          onClick={() => navigate('/dashboard')}
+          style={{
+            marginLeft: 'auto',
+            padding: '12px 20px',
+            fontStyle: 'italic',
+            fontWeight: 800,
+            fontSize: 14,
+            letterSpacing: '0.08em',
+          }}
+        >
+          내 대회 목록
+        </button>
       </div>
 
       {/* 요약 — 입력 변경 시 실시간 재계산 */}
@@ -116,8 +154,9 @@ export function TicketSetup() {
                 }}
               />
               <input
-                type="number"
-                value={row.amount}
+                type="text"
+                inputMode="numeric"
+                value={row.amount === 0 ? '' : String(row.amount)}
                 onChange={(e) => updateRow(i, 'amount', e.target.value)}
                 style={{
                   flex: 1,
@@ -153,8 +192,9 @@ export function TicketSetup() {
               }}
             >
               <input
-                type="number"
-                value={row.count}
+                type="text"
+                inputMode="numeric"
+                value={row.count === 0 ? '' : String(row.count)}
                 onChange={(e) => updateRow(i, 'count', e.target.value)}
                 style={{
                   flex: 1,
@@ -248,9 +288,12 @@ export function TicketSetup() {
         <button
           className="btn-gold"
           onClick={start}
+          disabled={busy}
           style={{
             padding: 20,
             fontSize: 20,
+            opacity: busy ? 0.7 : 1,
+            cursor: busy ? 'wait' : 'pointer',
             boxShadow: '0 6px 28px rgba(245,198,74,0.35)',
           }}
         >

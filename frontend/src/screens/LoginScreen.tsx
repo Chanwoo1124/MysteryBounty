@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBounty } from '@/store/BountyStore';
+import { ApiError } from '@/api/client';
 
 /**
  * 관리자 전용 로그인 (회원가입 없음).
@@ -7,13 +9,25 @@ import { useNavigate } from 'react-router-dom';
  */
 export function LoginScreen() {
   const navigate = useNavigate();
+  const { login } = useBounty();
   const [id, setId] = useState('');
   const [pw, setPw] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // TODO: 실제 인증 API 연동
-    navigate('/dashboard');
+    if (busy) return;
+    setError('');
+    setBusy(true);
+    try {
+      await login(id, pw);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '로그인에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const inputStyle = (accent: string) => ({
@@ -115,9 +129,23 @@ export function LoginScreen() {
             onChange={(e) => setPw(e.target.value)}
             style={inputStyle('var(--blue)')}
           />
+          {error && (
+            <div
+              style={{
+                fontFamily: 'var(--font-kr)',
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#EF3340',
+                textAlign: 'center',
+              }}
+            >
+              {error}
+            </div>
+          )}
           <button
             type="submit"
             className="skew"
+            disabled={busy}
             style={{
               marginTop: 14,
               padding: 17,
@@ -128,7 +156,8 @@ export function LoginScreen() {
               fontWeight: 900,
               fontSize: 17,
               letterSpacing: '0.14em',
-              cursor: 'pointer',
+              cursor: busy ? 'wait' : 'pointer',
+              opacity: busy ? 0.7 : 1,
               boxShadow: '0 4px 24px rgba(217,30,42,0.35)',
               transition: 'all 0.15s',
             }}

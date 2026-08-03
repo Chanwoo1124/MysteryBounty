@@ -4,7 +4,7 @@ import { useBounty } from '@/store/BountyStore';
 import { FxOverlay } from '@/components/FxOverlay';
 import { useCountUp } from '@/lib/useCountUp';
 import { formatKr, intensityOf } from '@/lib/format';
-import { confirmDraw as commitToServer, drawBounty } from '@/api/client';
+import { ApiError } from '@/api/client';
 import type { DrawPhase, DrawResult } from '@/lib/types';
 
 const HANDOFF_MS = 1800;
@@ -25,7 +25,7 @@ const REVEAL_LABEL = {
  */
 export function DrawCeremony() {
   const navigate = useNavigate();
-  const { tiers, commitDraw } = useBounty();
+  const { currentTournamentId, draw, confirmDraw } = useBounty();
 
   const [phase, setPhase] = useState<DrawPhase>('armed');
   const [result, setResult] = useState<DrawResult | null>(null);
@@ -35,6 +35,11 @@ export function DrawCeremony() {
   const amount = result?.amount ?? 0;
   const level = intensityOf(amount);
   const [count, countDone] = useCountUp(amount, 1600, phase === 'reveal');
+
+  // 선택된 대회가 없으면 목록으로
+  useEffect(() => {
+    if (!currentTournamentId) navigate('/dashboard');
+  }, [currentTournamentId, navigate]);
 
   // 화면을 벗어나면 예약된 전이를 취소한다
   useEffect(() => () => clearTimeout(timerRef.current), []);
@@ -51,26 +56,30 @@ export function DrawCeremony() {
     setPhase('shaking');
 
     try {
-      // 당첨 결과는 서버가 결정한다. 프론트는 받아온 값으로 연출만 한다.
-      const drawn = await drawBounty(tiers);
+      // 당첨 결과는 서버가 결정한다(가중 랜덤 + 차감 + PENDING). 프론트는 받아온 값으로 연출만.
+      const drawn = await draw();
       setResult(drawn);
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         setFxKey((k) => k + 1);
         setPhase('reveal');
       }, SHAKE_MS);
-    } catch {
-      // 잔여 티켓이 없는 등 추첨 실패 — 다시 뽑을 수 있도록 되돌린다
+    } catch (err) {
+      // 잔여 티켓 없음 / 확인 대기 중 등 추첨 실패 — 다시 뽑을 수 있도록 되돌린다
+      window.alert(err instanceof ApiError ? err.message : '추첨에 실패했습니다.');
       setPhase('armed');
     }
-  }, [phase, tiers]);
+  }, [phase, draw]);
 
-  /** 확인 — 티켓 차감 + 기록 추가 후 현황판 복귀 */
+  /** 확인 — 서버에 확정(PENDING→CONFIRMED) 후 현황판 복귀 */
   const handleConfirm = async () => {
     if (!result) return;
-    await commitToServer(result);
-    commitDraw(result.tierIndex, result.amount);
-    navigate('/board');
+    try {
+      await confirmDraw(result.drawId);
+      navigate('/board');
+    } catch (err) {
+      window.alert(err instanceof ApiError ? err.message : '확정에 실패했습니다.');
+    }
   };
 
   const showCase = phase === 'armed' || phase === 'shaking';
@@ -336,7 +345,7 @@ export function DrawCeremony() {
             ₩ {count.toLocaleString()}
           </div>
 
-          {/* 카운트업이 끝나야 확인 버튼이 열린다 */}
+          {/* 카운트업이 끝나야 확인 버튼이 열린다 (잘못 뽑았으면 확정 후 당첨 기록에서 되돌리기) */}
           {countDone && (
             <button
               className="btn-gold"

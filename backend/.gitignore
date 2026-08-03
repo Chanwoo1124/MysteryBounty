@@ -1,6 +1,12 @@
 HELP.md
 .gradle
 build/
+
+### 개발용 H2 파일 DB / 로컬 데이터 ###
+/data/
+*.db
+*.trace.db
+*.mv.db
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/

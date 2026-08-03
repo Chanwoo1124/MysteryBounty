@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
 import { ChestImage } from '@/components/ChestImage';
 import { TierCard } from '@/components/TierCard';
 import { formatKr } from '@/lib/format';
+import { ApiError } from '@/api/client';
 
 /**
  * 대형 디스플레이용 메인 현황판.
@@ -10,7 +12,28 @@ import { formatKr } from '@/lib/format';
  */
 export function LiveBoard() {
   const navigate = useNavigate();
-  const { tiers, remainingPrize, remainingTickets } = useBounty();
+  const { tiers, remainingPrize, remainingTickets, currentTournamentId, pendingDrawId, loadBoard, cancelDraw } =
+    useBounty();
+
+  // 진입 시 현황을 불러온다. (같은 기기에서 추첨하므로 별도 폴링 없이 액션 직후 재조회로 충분)
+  useEffect(() => {
+    if (!currentTournamentId) {
+      navigate('/dashboard');
+      return;
+    }
+    loadBoard().catch((err) => {
+      if (err instanceof ApiError && err.status === 401) navigate('/login');
+    });
+  }, [currentTournamentId, loadBoard, navigate]);
+
+  // 확인하지 않고 이탈한 추첨(PENDING)이 남아 다음 추첨을 막을 때, 여기서 취소해 티켓을 되돌린다.
+  const cancelPending = () => {
+    if (pendingDrawId == null) return;
+    if (!window.confirm('확인되지 않은 대기 추첨을 취소하고 티켓을 되돌릴까요?')) return;
+    cancelDraw(pendingDrawId).catch((err) => {
+      window.alert(err instanceof ApiError ? err.message : '취소에 실패했습니다.');
+    });
+  };
 
   // 최고 금액대는 잭팟 배너로 따로 강조하고, 나머지는 그리드로
   const [jackpot, ...restTiers] = tiers;
@@ -51,9 +74,22 @@ export function LiveBoard() {
         <div style={{ fontStyle: 'italic', fontWeight: 900, fontSize: 22 }}>
           MYSTERY BOUNTY <span style={{ color: 'var(--gold)' }}>TREASURE</span>
         </div>
-        <div
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="btn-gold-outline"
           style={{
             marginLeft: 'auto',
+            padding: '10px 18px',
+            fontStyle: 'italic',
+            fontWeight: 800,
+            fontSize: 13,
+            letterSpacing: '0.08em',
+          }}
+        >
+          ← 내 대회 목록
+        </button>
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
             gap: 10,
@@ -76,6 +112,59 @@ export function LiveBoard() {
           LIVE
         </div>
       </div>
+
+      {/* 확인 대기 중인 추첨(PENDING) 경고 — 취소해 티켓 복구 */}
+      {pendingDrawId != null && (
+        <div
+          style={{
+            marginTop: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: '12px 18px',
+            background: 'rgba(200,30,46,0.14)',
+            border: '1px solid rgba(200,30,46,0.55)',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: 'var(--font-kr)',
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'var(--gold-light)',
+            }}
+          >
+            ⚠ 확인되지 않은 대기 추첨이 있어 다음 추첨이 막혀 있습니다.
+          </div>
+          <button
+            onClick={cancelPending}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(200,30,46,0.3)';
+              e.currentTarget.style.color = '#FFFFFF';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'rgba(247,241,227,0.9)';
+            }}
+            style={{
+              marginLeft: 'auto',
+              padding: '9px 20px',
+              background: 'transparent',
+              border: '1px solid rgba(200,30,46,0.7)',
+              color: 'rgba(247,241,227,0.9)',
+              fontStyle: 'italic',
+              fontWeight: 800,
+              fontSize: 13,
+              letterSpacing: '0.06em',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            ↺ 대기 추첨 취소
+          </button>
+        </div>
+      )}
 
       {/* TOTAL REMAINING 배너 */}
       <div
