@@ -18,17 +18,42 @@ export class ApiError extends Error {
   }
 }
 
+/** 서버가 끊겨 요청 자체가 닿지 못했을 때 쓰는 상태값 (HTTP 응답이 없으므로 0) */
+const OFFLINE = 0;
+const OFFLINE_MESSAGE = '백엔드 서버에 연결하지 못했습니다. 서버가 켜져 있는지 확인해주세요.';
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
+  let res: Response;
+  try {
+    res = await fetch(BASE + path, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      ...init,
+    });
+  } catch {
+    // 서버가 꺼져 있거나 네트워크가 끊긴 경우 — fetch 는 여기서 바로 실패한다
+    throw new ApiError(OFFLINE, OFFLINE_MESSAGE);
+  }
 
   if (res.status === 204) return undefined as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : undefined;
+
+  /*
+   * 본문은 JSON 이 아닐 수 있다. 백엔드가 죽으면 vite 프록시가 HTML/평문 오류를 대신 내려주는데,
+   * 그걸 그대로 JSON.parse 하면 SyntaxError 가 나서 ApiError 가 아닌 엉뚱한 에러로 번진다.
+   * (화면마다 '로그인에 실패했습니다' 같은 기본 문구만 뜨고 진짜 원인이 가려진다)
+   */
+  let data: { error?: string } | undefined;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    throw new ApiError(
+      res.ok ? OFFLINE : res.status,
+      res.ok ? OFFLINE_MESSAGE : `서버 응답을 읽지 못했습니다. (HTTP ${res.status})`,
+    );
+  }
+
   if (!res.ok) {
     throw new ApiError(res.status, data?.error ?? '요청을 처리하지 못했습니다.');
   }
@@ -74,9 +99,6 @@ export interface BoardRes {
   tournamentName: string;
   remainingPrize: number;
   remainingTickets: number;
-  hasPendingDraw: boolean;
-  /** 확인 대기 중인 추첨 id (없으면 null) */
-  pendingDrawId: number | null;
   tiers: BoardTierRes[];
 }
 
@@ -93,10 +115,8 @@ export interface RecordRes {
   amount: number;
   status: 'PENDING' | 'CONFIRMED';
   winnerName: string | null;
+  /** 전화번호 뒷자리 4자리 */
   winnerPhone: string | null;
-  winnerSsnMasked: string | null;
-  winnerBank: string | null;
-  winnerAccountNumber: string | null;
 }
 
 export interface RecordsRes {
@@ -104,14 +124,17 @@ export interface RecordsRes {
   records: RecordRes[];
 }
 
-/** 기록 입력 페이로드 (주민번호는 평문 전송 → 서버가 암호화 저장) */
+/** 기록 수정 페이로드 — 당첨자 정보만 고친다 (상금은 추첨이 정한 값이라 대상이 아니다) */
 export interface RecordInputBody {
-  amount?: number;
   winnerName?: string;
   winnerPhone?: string;
-  winnerSsn?: string;
-  winnerBank?: string;
-  winnerAccountNumber?: string;
+}
+
+/** 추첨 요청 — 당첨자 정보는 서버가 추첨 기록에 함께 저장한다 */
+export interface DrawBody {
+  winnerName: string;
+  /** 전화번호 뒷자리 4자리 */
+  winnerPhone: string;
 }
 
 /* ── 엔드포인트 ── */
@@ -157,19 +180,16 @@ export const api = {
   },
 
   draw: {
-    draw: (tournamentId: number) =>
-      http<DrawRes>(`/api/tournaments/${tournamentId}/draws`, { method: 'POST' }),
-    confirm: (drawId: number) => http<RecordRes>(`/api/draws/${drawId}/confirm`, { method: 'POST' }),
-    cancel: (drawId: number) => http<void>(`/api/draws/${drawId}`, { method: 'DELETE' }),
+    /** 뽑기 — 이 한 번의 요청으로 결과 확정·티켓 차감·기록 저장까지 끝난다 */
+    draw: (tournamentId: number, body: DrawBody) =>
+      http<DrawRes>(`/api/tournaments/${tournamentId}/draws`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
   },
 
   record: {
     list: (tournamentId: number) => http<RecordsRes>(`/api/tournaments/${tournamentId}/records`),
-    create: (tournamentId: number, body: RecordInputBody) =>
-      http<RecordRes>(`/api/tournaments/${tournamentId}/records`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
     update: (recordId: number, body: RecordInputBody) =>
       http<RecordRes>(`/api/records/${recordId}`, {
         method: 'PATCH',
@@ -178,9 +198,14 @@ export const api = {
     remove: (recordId: number) => http<void>(`/api/records/${recordId}`, { method: 'DELETE' }),
     /** 엑셀(.xlsx) 다운로드 — blob 을 받아 파일로 저장 */
     async download(tournamentId: number): Promise<void> {
-      const res = await fetch(BASE + `/api/tournaments/${tournamentId}/records/export`, {
-        credentials: 'include',
-      });
+      let res: Response;
+      try {
+        res = await fetch(BASE + `/api/tournaments/${tournamentId}/records/export`, {
+          credentials: 'include',
+        });
+      } catch {
+        throw new ApiError(OFFLINE, OFFLINE_MESSAGE);
+      }
       if (!res.ok) {
         throw new ApiError(res.status, '엑셀 다운로드에 실패했습니다.');
       }
