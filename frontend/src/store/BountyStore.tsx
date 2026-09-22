@@ -55,9 +55,6 @@ function toWinRecord(r: RecordRes): WinRecord {
     amount: r.amount,
     name: r.winnerName ?? '',
     phone: r.winnerPhone ?? '',
-    ssnMasked: r.winnerSsnMasked ?? '',
-    bank: r.winnerBank ?? '',
-    accountNumber: r.winnerAccountNumber ?? '',
   };
 }
 
@@ -100,25 +97,19 @@ interface BountyState {
 
   /* 현황판 (서버 소유 상태) */
   tiers: Tier[];
-  remainingPrize: number;
+  /** 대회 전체 상금 — 추첨이 진행돼도 변하지 않는다 */
+  totalPrize: number;
   remainingTickets: number;
-  totalTickets: number;
-  /** 확인 대기 중인 추첨 id (없으면 null) */
-  pendingDrawId: number | null;
   loadBoard: () => Promise<void>;
 
   /* 추첨 */
-  draw: () => Promise<DrawResult>;
-  confirmDraw: (drawId: number) => Promise<void>;
-  /** 확정 전 추첨 취소 (PENDING 되돌리기 — 티켓 복구) */
-  cancelDraw: (drawId: number) => Promise<void>;
+  /** 당첨자 이름·전화번호 뒷자리를 받아 추첨 (서버가 확정·차감·기록까지 끝낸다) */
+  draw: (name: string, phoneLast4: string) => Promise<DrawResult>;
 
   /* 당첨 기록 (행별 편집/삭제) */
   winRecords: WinRecord[];
   stats: { totalPaid: number; drawCount: number; maxWin: number };
   loadRecords: () => Promise<void>;
-  /** 추첨 없이 수동으로 기록 1건 추가 */
-  addRecord: (input: RecordInput) => Promise<void>;
   /** 기록 1건의 당첨자 정보·상금 수정 */
   updateRecord: (recordId: number, input: RecordInput) => Promise<void>;
   /** 기록 1건 삭제 (추첨 기록이면 티켓 복구) */
@@ -136,16 +127,15 @@ export function BountyProvider({ children }: { children: ReactNode }) {
   const [currentTournamentId, setCurrentId] = useState<number | null>(readCurrentId);
 
   const [tiers, setTiers] = useState<Tier[]>([]);
-  const [pendingDrawId, setPendingDrawId] = useState<number | null>(null);
   const [rows, setRows] = useState<SetupRow[]>([]);
 
   const [records, setRecords] = useState<RecordRes[]>([]);
   const [stats, setStats] = useState({ totalPaid: 0, drawCount: 0, maxWin: 0 });
 
   /* 파생값 — 티어 잔여에서 계산 */
-  const remainingPrize = useMemo(() => tiers.reduce((a, t) => a + t.left * t.amount, 0), [tiers]);
+  // 전체 상금은 total(발행 티켓 수) 기준이라 추첨을 해도 줄지 않는다
+  const totalPrize = useMemo(() => tiers.reduce((a, t) => a + t.total * t.amount, 0), [tiers]);
   const remainingTickets = useMemo(() => tiers.reduce((a, t) => a + t.left, 0), [tiers]);
-  const totalTickets = useMemo(() => tiers.reduce((a, t) => a + t.total, 0), [tiers]);
 
   /* 기록: 서버가 최신순(내림차순)으로 내려주며, 화면도 최신이 위로 */
   const winRecords = useMemo<WinRecord[]>(() => records.map(toWinRecord), [records]);
@@ -248,31 +238,25 @@ export function BountyProvider({ children }: { children: ReactNode }) {
     if (!currentTournamentId) return;
     const board = await api.board.get(currentTournamentId);
     setTiers(board.tiers.map((t) => ({ amount: t.amount, total: t.totalCount, left: t.remainingCount })));
-    setPendingDrawId(board.pendingDrawId);
   }, [currentTournamentId]);
 
   /* ── 추첨 ── */
-  const draw = useCallback(async (): Promise<DrawResult> => {
-    if (!currentTournamentId) throw new Error('선택된 대회가 없습니다.');
-    const res = await api.draw.draw(currentTournamentId);
-    return { amount: res.amount, drawId: res.drawId };
-  }, [currentTournamentId]);
-
-  const confirmDraw = useCallback(
-    async (drawId: number) => {
-      await api.draw.confirm(drawId);
+  /**
+   * 뽑기 — 서버가 결과를 확정하고 티켓 차감·기록 저장까지 끝낸다.
+   * 연출은 이미 끝난 결과를 보여주는 껍데기라 따로 확정 요청을 보내지 않는다.
+   * 잘못 뽑은 건은 당첨 기록 화면에서 되돌리기(삭제)하면 티켓이 복구된다.
+   */
+  const draw = useCallback(
+    async (name: string, phoneLast4: string): Promise<DrawResult> => {
+      if (!currentTournamentId) throw new Error('선택된 대회가 없습니다.');
+      const res = await api.draw.draw(currentTournamentId, {
+        winnerName: name,
+        winnerPhone: phoneLast4,
+      });
       await loadBoard();
+      return { amount: res.amount, drawId: res.drawId };
     },
-    [loadBoard],
-  );
-
-  /** 확정 전 추첨 취소 — 서버가 티켓을 복구한다. */
-  const cancelDraw = useCallback(
-    async (drawId: number) => {
-      await api.draw.cancel(drawId);
-      await loadBoard();
-    },
-    [loadBoard],
+    [currentTournamentId, loadBoard],
   );
 
   /* ── 당첨 기록 ── */
@@ -283,36 +267,12 @@ export function BountyProvider({ children }: { children: ReactNode }) {
     setStats(res.stats);
   }, [currentTournamentId]);
 
-  /**
-   * 기록 추가 — 관리자가 직접 입력한 새 수동 기록을 만든다(POST).
-   * (추첨은 티켓만 소진하고 기록을 자동 생성하지 않으므로 항상 신규 생성)
-   */
-  const addRecord = useCallback(
-    async (input: RecordInput) => {
-      if (!currentTournamentId) throw new Error('선택된 대회가 없습니다.');
-      await api.record.create(currentTournamentId, {
-        amount: input.amount,
-        winnerName: input.name,
-        winnerPhone: input.phone,
-        winnerSsn: input.ssn,
-        winnerBank: input.bank,
-        winnerAccountNumber: input.accountNumber,
-      });
-      await loadRecords();
-    },
-    [currentTournamentId, loadRecords],
-  );
-
-  /** 기록 1건의 당첨자 정보·상금 수정 (PATCH) — 주민번호는 입력했을 때만 전송 */
+  /** 기록 1건의 당첨자 정보·상금 수정 (PATCH) */
   const updateRecord = useCallback(
     async (recordId: number, input: RecordInput) => {
       await api.record.update(recordId, {
-        amount: input.amount > 0 ? input.amount : undefined, // 0이면 상금 미변경
         winnerName: input.name,
         winnerPhone: input.phone,
-        winnerSsn: input.ssn || undefined, // 빈값이면 미변경(기존 값 유지)
-        winnerBank: input.bank,
-        winnerAccountNumber: input.accountNumber,
       });
       await loadRecords();
     },
@@ -353,18 +313,13 @@ export function BountyProvider({ children }: { children: ReactNode }) {
       loadTiersIntoRows,
       saveAndStart,
       tiers,
-      remainingPrize,
+      totalPrize,
       remainingTickets,
-      totalTickets,
-      pendingDrawId,
       loadBoard,
       draw,
-      confirmDraw,
-      cancelDraw,
       winRecords,
       stats,
       loadRecords,
-      addRecord,
       updateRecord,
       deleteRecord,
       exportRecords,
@@ -387,18 +342,13 @@ export function BountyProvider({ children }: { children: ReactNode }) {
       loadTiersIntoRows,
       saveAndStart,
       tiers,
-      remainingPrize,
+      totalPrize,
       remainingTickets,
-      totalTickets,
-      pendingDrawId,
       loadBoard,
       draw,
-      confirmDraw,
-      cancelDraw,
       winRecords,
       stats,
       loadRecords,
-      addRecord,
       updateRecord,
       deleteRecord,
       exportRecords,

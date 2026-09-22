@@ -17,11 +17,8 @@ export interface WinRecord {
   /** 당첨 금액 (원 단위) */
   amount: number;
   name: string;
+  /** 전화번호 뒷자리 4자리 */
   phone: string;
-  /** 마스킹된 주민번호 (표시용) */
-  ssnMasked: string;
-  bank: string;
-  accountNumber: string;
 }
 
 /** 티켓 구성 화면의 입력 행 (금액은 만원 단위) */
@@ -47,9 +44,6 @@ export interface Tournament {
 /** 추첨 연출 강도 */
 export type Intensity = 'jackpot' | 'mid' | 'low';
 
-/** 추첨 상태 머신 */
-export type DrawPhase = 'staff' | 'handoff' | 'armed' | 'shaking' | 'reveal';
-
 /** 서버가 내려주는 추첨 결과 */
 export interface DrawResult {
   /** 당첨 금액 (원 단위) */
@@ -58,13 +52,12 @@ export interface DrawResult {
   drawId: number;
 }
 
-/** 당첨 기록 입력 (계좌는 은행/계좌번호 2필드) */
+/**
+ * 당첨자 정보 입력 — 기록에서 고칠 수 있는 건 이름과 전화번호 뒷자리뿐이다.
+ * 상금은 추첨이 정하고 금액대 잔여와 묶여 있어 수정 대상이 아니다.
+ */
 export interface RecordInput {
-  /** 당첨 금액 (원 단위) */
-  amount: number;
   name: string;
+  /** 전화번호 뒷자리 4자리 */
   phone: string;
-  ssn: string;
-  bank: string;
-  accountNumber: string;
 }

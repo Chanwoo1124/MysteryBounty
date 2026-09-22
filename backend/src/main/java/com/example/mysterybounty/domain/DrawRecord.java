@@ -2,8 +2,6 @@ package com.example.mysterybounty.domain;
 
 import java.time.LocalDateTime;
 
-import com.example.mysterybounty.support.ConflictException;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -43,17 +41,8 @@ public class DrawRecord {
 
     private String winnerName;
 
+    /** 전화번호 뒷자리 4자리 */
     private String winnerPhone;
-
-    /** 주민번호 — AES 암호화 저장 */
-    @Column(length = 512)
-    private String winnerSsn;
-
-    /** 은행 */
-    private String winnerBank;
-
-    /** 계좌번호 */
-    private String winnerAccountNumber;
 
     @Column(nullable = false)
     private LocalDateTime drawnAt;
@@ -66,43 +55,20 @@ public class DrawRecord {
         this.drawnAt = LocalDateTime.now();
     }
 
-    /** 추첨으로 뽑힌 대기(PENDING) 기록 */
-    public static DrawRecord pending(Long tournamentId, Long tierId, Long amount) {
-        return new DrawRecord(tournamentId, tierId, amount, DrawStatus.PENDING);
-    }
-
-    /** 수동 입력(추첨 없이) — 즉시 확정 */
-    public static DrawRecord manual(Long tournamentId, Long amount) {
-        return new DrawRecord(tournamentId, null, amount, DrawStatus.CONFIRMED);
-    }
-
-    public boolean isPending() {
-        return status == DrawStatus.PENDING;
-    }
-
-    /** 상금 금액 수정 (원 단위) */
-    public void changeAmount(long amount) {
-        this.amount = amount;
-    }
-
-    /** PENDING → CONFIRMED */
-    public void confirm() {
-        if (status == DrawStatus.CONFIRMED) {
-            throw new ConflictException("이미 확정된 추첨입니다.");
-        }
-        this.status = DrawStatus.CONFIRMED;
-    }
-
     /**
-     * 당첨자 정보 갱신 (부분 업데이트, null 이면 해당 필드 미변경).
-     * 주민번호는 암호화된 값을 전달해야 한다.
+     * 추첨으로 뽑힌 기록 — 추첨 전에 입력받은 당첨자 정보와 함께 즉시 확정 저장한다.
+     * (연출은 이미 끝난 결과를 보여주는 껍데기라, 연출을 기다렸다 확정하지 않는다)
      */
-    public void updateWinnerInfo(String name, String phone, String encryptedSsn,
-                                 String bank, String accountNumber) {
+    public static DrawRecord drawn(Long tournamentId, Long tierId, Long amount,
+                                   String winnerName, String winnerPhone) {
+        DrawRecord record = new DrawRecord(tournamentId, tierId, amount, DrawStatus.CONFIRMED);
+        record.updateWinnerInfo(winnerName, winnerPhone);
+        return record;
+    }
+
+    /** 당첨자 정보 갱신 (부분 업데이트, null 이면 해당 필드 미변경) */
+    public void updateWinnerInfo(String name, String phone) {
         if (name != null) this.winnerName = name;
         if (phone != null) this.winnerPhone = phone;
-        if (encryptedSsn != null) this.winnerSsn = encryptedSsn;
-        if (bank != null) this.winnerBank = bank;
-        if (accountNumber != null) this.winnerAccountNumber = accountNumber;
     }
 }

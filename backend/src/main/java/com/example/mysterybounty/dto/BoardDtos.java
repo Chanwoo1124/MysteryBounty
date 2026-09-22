@@ -14,9 +14,6 @@ public final class BoardDtos {
             String tournamentName,
             long remainingPrize,
             int remainingTickets,
-            boolean hasPendingDraw,
-            /** 확인 대기 중인 추첨 id (없으면 null) — 현황판에서 취소용 */
-            Long pendingDrawId,
             List<BoardTier> tiers) {
     }
 
