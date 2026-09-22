@@ -11,12 +11,10 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.mysterybounty.dto.RecordDtos.CreateRequest;
 import com.example.mysterybounty.dto.RecordDtos.ListResponse;
 import com.example.mysterybounty.dto.RecordDtos.Response;
 import com.example.mysterybounty.dto.RecordDtos.UpdateRequest;
@@ -25,7 +23,6 @@ import com.example.mysterybounty.service.ExportService;
 import com.example.mysterybounty.service.ExportService.ExportResult;
 import com.example.mysterybounty.service.RecordService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -42,13 +39,6 @@ public class RecordController {
     @GetMapping("/api/tournaments/{tournamentId}/records")
     public ListResponse list(@PathVariable Long tournamentId) {
         return recordService.list(authService.currentAdminId(), tournamentId);
-    }
-
-    @PostMapping("/api/tournaments/{tournamentId}/records")
-    @ResponseStatus(HttpStatus.CREATED)
-    public Response create(@PathVariable Long tournamentId,
-                           @Valid @RequestBody CreateRequest request) {
-        return recordService.create(authService.currentAdminId(), tournamentId, request);
     }
 
     @PatchMapping("/api/records/{recordId}")

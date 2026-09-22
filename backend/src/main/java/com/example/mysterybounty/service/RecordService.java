@@ -1,6 +1,7 @@
 package com.example.mysterybounty.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -8,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.mysterybounty.domain.DrawRecord;
 import com.example.mysterybounty.domain.DrawStatus;
 import com.example.mysterybounty.domain.PrizeTier;
-import com.example.mysterybounty.dto.RecordDtos.CreateRequest;
 import com.example.mysterybounty.dto.RecordDtos.ListResponse;
 import com.example.mysterybounty.dto.RecordDtos.Response;
 import com.example.mysterybounty.dto.RecordDtos.Stats;
@@ -16,7 +16,6 @@ import com.example.mysterybounty.dto.RecordDtos.UpdateRequest;
 import com.example.mysterybounty.repository.DrawRecordRepository;
 import com.example.mysterybounty.repository.PrizeTierRepository;
 import com.example.mysterybounty.support.NotFoundException;
-import com.example.mysterybounty.support.SsnCipher;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,11 +27,10 @@ public class RecordService {
     private final PrizeTierRepository prizeTierRepository;
     private final TournamentService tournamentService;
     private final RecordMapper recordMapper;
-    private final SsnCipher ssnCipher;
 
     /**
      * 당첨 기록 목록 + 통계.
-     * 추첨으로 확정된 기록과 수동 입력 기록을 모두 노출한다(확정 대기 PENDING 제외).
+     * 확정(CONFIRMED) 기록만 노출한다 — 새 추첨은 전부 확정이고, PENDING 은 옛 데이터뿐이다.
      * 각 기록은 화면에서 당첨자 정보 입력·수정·삭제(되돌리기)가 가능하다.
      */
     @Transactional(readOnly = true)
@@ -49,20 +47,6 @@ public class RecordService {
         return new ListResponse(stats, responses);
     }
 
-    /** 수동 기록 추가 (추첨 없이 직접 입력) — 즉시 CONFIRMED */
-    @Transactional
-    public Response create(Long adminId, Long tournamentId, CreateRequest request) {
-        tournamentService.getOwned(adminId, tournamentId);
-        DrawRecord record = DrawRecord.manual(tournamentId, request.amount());
-        record.updateWinnerInfo(
-                request.winnerName(),
-                request.winnerPhone(),
-                ssnCipher.encrypt(request.winnerSsn()),
-                request.winnerBank(),
-                request.winnerAccountNumber());
-        return recordMapper.toResponse(drawRecordRepository.save(record));
-    }
-
     /** 당첨자 정보 입력/수정 (부분 업데이트) */
     @Transactional
     public Response update(Long adminId, Long recordId, UpdateRequest request) {
@@ -70,26 +54,13 @@ public class RecordService {
                 .orElseThrow(() -> new NotFoundException("기록을 찾을 수 없습니다."));
         tournamentService.getOwned(adminId, record.getTournamentId());
 
-        // 상금은 값이 있을 때만 변경 (null 이면 미변경)
-        if (request.amount() != null) {
-            record.changeAmount(request.amount());
-        }
-        // 주민번호는 값이 있을 때만 암호화 (null 이면 미변경)
-        String encryptedSsn = (request.winnerSsn() != null && !request.winnerSsn().isBlank())
-                ? ssnCipher.encrypt(request.winnerSsn())
-                : null;
-        record.updateWinnerInfo(
-                request.winnerName(),
-                request.winnerPhone(),
-                encryptedSsn,
-                request.winnerBank(),
-                request.winnerAccountNumber());
+        record.updateWinnerInfo(request.winnerName(), request.winnerPhone());
         return recordMapper.toResponse(record);
     }
 
     /**
      * 기록 삭제 (오조작 되돌리기).
-     * 추첨으로 뽑힌 기록(tierId 있음)이면 해당 티어에 티켓 1건을 복구한다.
+     * 추첨으로 뽑힌 기록(tierId 있음)이면 해당 금액대에 티켓 1건을 복구한다.
      */
     @Transactional
     public void delete(Long adminId, Long recordId) {
@@ -98,9 +69,27 @@ public class RecordService {
         tournamentService.getOwned(adminId, record.getTournamentId());
 
         if (record.getTierId() != null) {
-            prizeTierRepository.findById(record.getTierId())
-                    .ifPresent(PrizeTier::restoreRemaining);
+            findTierToRestore(record).ifPresent(PrizeTier::restoreRemaining);
         }
         drawRecordRepository.delete(record);
+    }
+
+    /**
+     * 티켓을 되돌려 놓을 금액대를 찾는다.
+     *
+     * 기록이 들고 있는 tierId 가 1순위지만, 티켓 구성을 다시 저장하면 금액대 행이 통째로
+     * 지워졌다 새로 생겨(TierService.replace) 옛 id 는 사라진다. 그때는 <b>금액</b>으로 찾는다
+     * — 금액은 기록에 스냅샷으로 남아 있고, 구성 교체도 금액 기준으로 소진분을 이어받기 때문이다.
+     * 같은 금액대가 여러 행이면 이미 뽑힌 자리가 있는 행부터 채운다.
+     */
+    private Optional<PrizeTier> findTierToRestore(DrawRecord record) {
+        Optional<PrizeTier> byId = prizeTierRepository.findById(record.getTierId());
+        if (byId.isPresent()) {
+            return byId;
+        }
+        return prizeTierRepository.findByTournamentId(record.getTournamentId()).stream()
+                .filter(t -> t.getAmount().equals(record.getAmount()))
+                .filter(t -> t.getRemainingCount() < t.getTotalCount())
+                .findFirst();
     }
 }
