@@ -32,9 +32,4 @@ public class Admin {
         this.username = username;
         this.password = encodedPassword;
     }
-
-    /** 비밀번호 변경 (BCrypt 해시 전달) */
-    public void changePassword(String encodedPassword) {
-        this.password = encodedPassword;
-    }
 }

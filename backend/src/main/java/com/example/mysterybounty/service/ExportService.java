@@ -22,24 +22,18 @@ import com.example.mysterybounty.domain.DrawRecord;
 import com.example.mysterybounty.domain.DrawStatus;
 import com.example.mysterybounty.domain.Tournament;
 import com.example.mysterybounty.repository.DrawRecordRepository;
-import com.example.mysterybounty.support.SsnCipher;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * 당첨 기록 엑셀(.xlsx) 내보내기. 단일 시트, 동일인(이름+전화번호)은 한 행으로 합산.
- * 주민번호는 원천징수 목적의 인가된 용도이므로 <b>복호화한 원본값</b>을 출력한다.
- */
+/** 당첨 기록 엑셀(.xlsx) 내보내기. 단일 시트, 동일인(이름+전화번호 뒷자리)은 한 행으로 합산. */
 @Service
 @RequiredArgsConstructor
 public class ExportService {
 
-    private static final String[] HEADERS =
-            {"이름", "영어(성)", "영어(이름)", "주민번호", "은행", "계좌번호", "상금"};
+    private static final String[] HEADERS = {"이름", "전화번호 뒷자리", "상금"};
 
     private final DrawRecordRepository drawRecordRepository;
     private final TournamentService tournamentService;
-    private final SsnCipher ssnCipher;
 
     public record ExportResult(byte[] content, String filename) {
     }
@@ -52,7 +46,7 @@ public class ExportService {
         List<DrawRecord> confirmed = drawRecordRepository
                 .findByTournamentIdAndStatusOrderByDrawnAtDesc(tournamentId, DrawStatus.CONFIRMED);
 
-        // 이름 + 전화번호 기준 동일인 그룹핑 (금액 합산).
+        // 이름 + 전화번호 뒷자리 기준 동일인 그룹핑 (금액 합산).
         // 이름 미입력 건은 서로 다른 사람일 수 있으므로 record id 로 각각 분리한다.
         Map<String, Aggregate> grouped = new LinkedHashMap<>();
         for (DrawRecord r : confirmed) {
@@ -69,12 +63,8 @@ public class ExportService {
             for (Aggregate agg : grouped.values()) {
                 Row row = sheet.createRow(rowIdx++);
                 row.createCell(0).setCellValue(safe(agg.name));
-                row.createCell(1).setCellValue("");                 // 영어(성) — 미수집
-                row.createCell(2).setCellValue("");                 // 영어(이름) — 미수집
-                row.createCell(3).setCellValue(safe(agg.ssnPlain)); // 주민번호 원본
-                row.createCell(4).setCellValue(safe(agg.bank));
-                row.createCell(5).setCellValue(safe(agg.accountNumber));
-                row.createCell(6).setCellValue(agg.totalAmount);
+                row.createCell(1).setCellValue(safe(agg.phone));
+                row.createCell(2).setCellValue(agg.totalAmount);
             }
             for (int i = 0; i < HEADERS.length; i++) {
                 sheet.autoSizeColumn(i);
@@ -111,26 +101,16 @@ public class ExportService {
     /** 동일인 합산 누적기 */
     private final class Aggregate {
         private final String name;
-        private String ssnPlain;
-        private String bank;
-        private String accountNumber;
+        private final String phone;
         private long totalAmount;
 
         private Aggregate(DrawRecord first) {
             this.name = first.getWinnerName();
+            this.phone = first.getWinnerPhone();
         }
 
         private void add(DrawRecord r) {
             totalAmount += r.getAmount();
-            if (ssnPlain == null && r.getWinnerSsn() != null) {
-                ssnPlain = ssnCipher.decrypt(r.getWinnerSsn());
-            }
-            if (bank == null && r.getWinnerBank() != null) {
-                bank = r.getWinnerBank();
-            }
-            if (accountNumber == null && r.getWinnerAccountNumber() != null) {
-                accountNumber = r.getWinnerAccountNumber();
-            }
         }
     }
 }
