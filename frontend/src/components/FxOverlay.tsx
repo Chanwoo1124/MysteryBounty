@@ -14,34 +14,21 @@ interface FxOverlayProps {
   fxKey: number;
 }
 
-const COUNTS: Record<Intensity, { rays: number; sparks: number; coins: number }> = {
-  jackpot: { rays: 14, sparks: 70, coins: 40 },
-  mid: { rays: 8, sparks: 30, coins: 14 },
-  low: { rays: 4, sparks: 12, coins: 0 },
+/**
+ * 광선(ray)은 뺐다. 상자 영상이 이미 빛줄기를 내주는데 그 위에 또 겹치면
+ * 화면을 가로지르는 밝은 막대로 남아 지저분해진다.
+ */
+const COUNTS: Record<Intensity, { sparks: number; coins: number }> = {
+  jackpot: { sparks: 70, coins: 40 },
+  // 100만원 이상은 '돈이 쏟아진다'가 보여야 한다 — 금화를 두 배로 늘렸다
+  mid: { sparks: 36, coins: 28 },
+  low: { sparks: 12, coins: 0 },
 };
 
 export function FxOverlay({ level, fxKey }: FxOverlayProps) {
   const particles = useMemo(() => {
-    const { rays, sparks, coins } = COUNTS[level];
+    const { sparks, coins } = COUNTS[level];
     const nodes: { key: string; style: CSSProperties }[] = [];
-
-    // 중앙에서 뻗는 골드 광선
-    for (let i = 0; i < rays; i += 1) {
-      nodes.push({
-        key: `r${i}`,
-        style: {
-          position: 'absolute',
-          left: '50%',
-          top: '52%',
-          width: `${3 + Math.random() * 6}px`,
-          height: level === 'jackpot' ? '90vh' : '55vh',
-          background: 'linear-gradient(180deg, rgba(255,233,168,0.9), rgba(255,233,168,0))',
-          transformOrigin: 'center top',
-          ['--rot' as string]: `${i * (360 / rays)}deg`,
-          animation: `hgpRay ${0.9 + Math.random() * 0.6}s ease-out ${Math.random() * 0.3}s both`,
-        },
-      });
-    }
 
     // 방사형 스파크 (일부는 레드)
     for (let i = 0; i < sparks; i += 1) {
@@ -99,8 +86,8 @@ export function FxOverlay({ level, fxKey }: FxOverlayProps) {
           inset: 0,
           background:
             level === 'jackpot'
-              ? 'radial-gradient(circle at 50% 55%, rgba(255,233,168,0.75), rgba(200,30,46,0.35) 55%, transparent 80%)'
-              : 'radial-gradient(circle at 50% 55%, rgba(255,233,168,0.4), transparent 60%)',
+              ? 'radial-gradient(circle at 50% 55%, rgba(255,233,168,0.32), rgba(200,30,46,0.18) 55%, transparent 80%)'
+              : 'radial-gradient(circle at 50% 55%, rgba(255,233,168,0.18), transparent 60%)',
           animation: `hgpFlash ${level === 'jackpot' ? 1.3 : 0.7}s ease-out both`,
         },
       });
@@ -111,7 +98,8 @@ export function FxOverlay({ level, fxKey }: FxOverlayProps) {
   }, [level, fxKey]);
 
   return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+    /* zIndex 로 상자 영상보다 확실히 위에 둔다. 아래에 깔리면 영상의 screen 합성에 섞여 상자가 허옇게 뜬다. */
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 4 }}>
       {particles.map((p) => (
         <div key={p.key} style={p.style} />
       ))}

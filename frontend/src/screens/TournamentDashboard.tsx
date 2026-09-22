@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
-import { formatKr } from '@/lib/format';
+import { Amount } from '@/components/Amount';
 import { ApiError } from '@/api/client';
 import type { Tournament, TournamentStatus } from '@/lib/types';
 
@@ -10,24 +10,25 @@ const STATUS_STYLE: Record<
   TournamentStatus,
   { badgeColor: string; badgeBg: string; accent: string; openLabel: string; openTo: string }
 > = {
+  // 현황판 팔레트에는 빨강·주황이 없다 → 상태 구분은 골드의 밝기 단계로만 준다
   진행중: {
-    badgeColor: '#F5C64A',
-    badgeBg: 'rgba(245,198,74,0.12)',
-    accent: '#F5C64A',
+    badgeColor: 'var(--gold)',
+    badgeBg: 'rgba(233,200,126,0.12)',
+    accent: 'var(--gold)',
     openLabel: '현황판 열기',
     openTo: '/board',
   },
   준비중: {
-    badgeColor: '#EF9A4A',
-    badgeBg: 'rgba(239,154,74,0.12)',
-    accent: '#C9962B',
+    badgeColor: 'var(--gold-dark)',
+    badgeBg: 'rgba(233,200,126,0.06)',
+    accent: 'var(--gold-dark)',
     openLabel: '세팅 열기',
     openTo: '/setup',
   },
   종료: {
-    badgeColor: 'rgba(247,241,227,0.4)',
+    badgeColor: 'var(--text-faint)',
     badgeBg: 'transparent',
-    accent: 'rgba(212,168,84,0.25)',
+    accent: 'var(--gold-border)',
     openLabel: '기록 보기',
     openTo: '/results',
   },
@@ -144,18 +145,18 @@ function TournamentCard({
     <div
       onClick={() => open(s.openTo)}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = '#F5C64A';
+        e.currentTarget.style.borderColor = 'var(--gold)';
         e.currentTarget.style.transform = 'translateY(-3px)';
         e.currentTarget.style.boxShadow = 'var(--shadow-card)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'rgba(212,168,84,0.3)';
+        e.currentTarget.style.borderColor = 'var(--gold-border)';
         e.currentTarget.style.transform = 'none';
         e.currentTarget.style.boxShadow = 'none';
       }}
       style={{
         background: 'var(--surface-card)',
-        border: '1px solid rgba(212,168,84,0.3)',
+        border: '1px solid var(--gold-border)',
         borderTop: `3px solid ${s.accent}`,
         padding: '24px 26px',
         cursor: 'pointer',
@@ -191,13 +192,13 @@ function TournamentCard({
               e.currentTarget.style.color = 'var(--gold-light)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'rgba(247,241,227,0.4)';
+              e.currentTarget.style.color = 'var(--text-dimmer)';
             }}
             style={{
               flexShrink: 0,
               background: 'transparent',
               border: 'none',
-              color: 'rgba(247,241,227,0.4)',
+              color: 'var(--text-dimmer)',
               fontSize: 14,
               cursor: 'pointer',
               padding: 2,
@@ -235,8 +236,8 @@ function TournamentCard({
               e.currentTarget.style.color = '#FF6B76';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(212,168,84,0.3)';
-              e.currentTarget.style.color = 'rgba(247,241,227,0.45)';
+              e.currentTarget.style.borderColor = 'var(--gold-border)';
+              e.currentTarget.style.color = 'var(--text-faint)';
             }}
             style={{
               width: 28,
@@ -245,8 +246,8 @@ function TournamentCard({
               alignItems: 'center',
               justifyContent: 'center',
               background: 'transparent',
-              border: '1px solid rgba(212,168,84,0.3)',
-              color: 'rgba(247,241,227,0.45)',
+              border: '1px solid var(--gold-border)',
+              color: 'var(--text-faint)',
               fontSize: 16,
               lineHeight: 1,
               cursor: 'pointer',
@@ -261,7 +262,7 @@ function TournamentCard({
       <div style={{ display: 'flex', gap: 28 }}>
         <Stat label="총 상금">
           <div className="gold-text-sm" style={{ fontStyle: 'italic', fontWeight: 900, fontSize: 24 }}>
-            {formatKr(t.totalPrize)}
+            <Amount value={t.totalPrize} />
           </div>
         </Stat>
         <Stat label="남은 티켓">
@@ -270,7 +271,7 @@ function TournamentCard({
               fontStyle: 'italic',
               fontWeight: 900,
               fontSize: 24,
-              color: t.status === '진행중' ? 'var(--gold-light)' : 'rgba(247,241,227,0.6)',
+              color: t.status === '진행중' ? 'var(--gold-light)' : 'var(--text-dim)',
             }}
           >
             {t.status === '준비중' ? '—' : t.ticketsLeft} / {t.ticketsTotal}
@@ -302,7 +303,8 @@ function TournamentCard({
           {/* 종료 대회는 '기록 보기'가 아래 '당첨 기록·엑셀'과 중복되므로 숨긴다 */}
           {t.status !== '종료' && (
             <button
-              className="btn-red-tint"
+              // 카드의 주 동작 — 골드 채움으로 나머지 외곽선 버튼과 구분한다
+              className="btn-gold-tint"
               style={{ flex: 1, padding: 11, fontSize: 13 }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -335,23 +337,24 @@ function TournamentCard({
               e.stopPropagation();
               end();
             }}
+            // 되돌릴 수 없는 동작이라 평소엔 조용히 두고, 손이 닿을 때만 빨강으로 경고한다
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'rgba(200,30,46,0.18)';
               e.currentTarget.style.borderColor = '#C81E2E';
               e.currentTarget.style.color = '#FF6B76';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(200,30,46,0.08)';
-              e.currentTarget.style.borderColor = 'rgba(200,30,46,0.55)';
-              e.currentTarget.style.color = 'rgba(247,241,227,0.85)';
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.borderColor = 'var(--gold-border)';
+              e.currentTarget.style.color = 'var(--text-dim)';
             }}
             style={{
               width: '100%',
               padding: 11,
               fontSize: 13,
-              background: 'rgba(200,30,46,0.08)',
-              border: '1px solid rgba(200,30,46,0.55)',
-              color: 'rgba(247,241,227,0.85)',
+              background: 'transparent',
+              border: '1px solid var(--gold-border)',
+              color: 'var(--text-dim)',
               fontStyle: 'italic',
               fontWeight: 800,
               letterSpacing: '0.04em',
@@ -428,7 +431,7 @@ function DeleteConfirmModal({
         style={{
           width: 'min(440px, 100%)',
           background: 'var(--surface-card)',
-          border: '1px solid rgba(212,168,84,0.35)',
+          border: '1px solid var(--gold-border)',
           borderTop: '3px solid var(--red)',
           padding: '30px 32px',
           display: 'flex',
@@ -511,17 +514,17 @@ function NewTournamentCard() {
     <button
       onClick={handleCreate}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'rgba(200,30,46,0.15)';
-        e.currentTarget.style.borderColor = '#C81E2E';
+        e.currentTarget.style.background = 'rgba(233,200,126,0.08)';
+        e.currentTarget.style.borderColor = 'var(--gold)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'rgba(200,30,46,0.07)';
-        e.currentTarget.style.borderColor = 'rgba(200,30,46,0.6)';
+        e.currentTarget.style.background = 'transparent';
+        e.currentTarget.style.borderColor = 'var(--gold-border)';
       }}
       style={{
         minHeight: 180,
-        background: 'rgba(200,30,46,0.07)',
-        border: '2px dashed rgba(200,30,46,0.6)',
+        background: 'transparent',
+        border: '2px dashed var(--gold-border)',
         color: 'var(--text)',
         cursor: 'pointer',
         display: 'flex',
@@ -532,19 +535,20 @@ function NewTournamentCard() {
         transition: 'all 0.18s',
       }}
     >
+      {/* 각진 모서리가 브랜드 규칙이지만, '더하기'는 원형이 관례라 여기만 예외로 둔다 */}
       <div
         style={{
           width: 52,
           height: 52,
-          background: 'var(--red)',
+          background: 'transparent',
+          border: '1px solid var(--gold-border-strong)',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 30,
           fontWeight: 800,
-          color: '#FFFFFF',
-          boxShadow: '0 4px 18px rgba(200,30,46,0.45)',
+          color: 'var(--gold)',
         }}
       >
         +

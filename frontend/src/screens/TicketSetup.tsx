@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
 import { StatCard } from '@/components/StatCard';
-import { formatKr, manToWon } from '@/lib/format';
+import { Amount } from '@/components/Amount';
+import { manToWon } from '@/lib/format';
 import { ApiError } from '@/api/client';
 
 /**
@@ -97,7 +98,7 @@ export function TicketSetup() {
         </StatCard>
         <StatCard label="총 상금 합계" accent="var(--red)">
           <div className="gold-text-sm" style={{ fontStyle: 'italic', fontWeight: 900, fontSize: 38 }}>
-            {formatKr(totalPrize)}
+            <Amount value={totalPrize} />
           </div>
         </StatCard>
       </div>
@@ -131,6 +132,7 @@ export function TicketSetup() {
             }}
           >
             <div
+              className="field-group"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -143,12 +145,13 @@ export function TicketSetup() {
                 style={{
                   width: 8,
                   alignSelf: 'stretch',
+                  // 금액대를 골드의 밝기 3단계로 구분한다 (높을수록 밝게)
                   background:
                     row.amount >= 1000
-                      ? 'var(--red)'
+                      ? 'var(--gold-lighter)'
                       : row.amount >= 100
                         ? 'var(--gold)'
-                        : 'rgba(212,168,84,0.4)',
+                        : 'var(--gold-dark)',
                   transform: 'skewX(-12deg)',
                   margin: '4px 8px 4px 6px',
                 }}
@@ -184,6 +187,7 @@ export function TicketSetup() {
             </div>
 
             <div
+              className="field-group"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -229,13 +233,13 @@ export function TicketSetup() {
                 e.currentTarget.style.color = '#C81E2E';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(212,168,84,0.3)';
-                e.currentTarget.style.color = 'rgba(247,241,227,0.5)';
+                e.currentTarget.style.borderColor = 'var(--gold-border)';
+                e.currentTarget.style.color = 'var(--text-dim)';
               }}
               style={{
                 background: 'transparent',
-                border: '1px solid rgba(212,168,84,0.3)',
-                color: 'rgba(247,241,227,0.5)',
+                border: '1px solid var(--gold-border)',
+                color: 'var(--text-dim)',
                 fontSize: 18,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
@@ -250,18 +254,18 @@ export function TicketSetup() {
         <button
           onClick={() => setRows([...rows, { amount: 10, count: 1 }])}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(245,198,74,0.1)';
-            e.currentTarget.style.borderColor = '#F5C64A';
+            e.currentTarget.style.background = 'rgba(233,200,126,0.08)';
+            e.currentTarget.style.borderColor = 'var(--gold)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.borderColor = 'rgba(245,198,74,0.55)';
+            e.currentTarget.style.borderColor = 'var(--gold-border-strong)';
           }}
           style={{
             marginTop: 6,
             padding: 13,
             background: 'transparent',
-            border: '1px dashed rgba(245,198,74,0.55)',
+            border: '1px dashed var(--gold-border-strong)',
             color: 'var(--gold)',
             fontStyle: 'italic',
             fontWeight: 800,
@@ -294,7 +298,7 @@ export function TicketSetup() {
             fontSize: 20,
             opacity: busy ? 0.7 : 1,
             cursor: busy ? 'wait' : 'pointer',
-            boxShadow: '0 6px 28px rgba(245,198,74,0.35)',
+            boxShadow: '0 6px 28px rgba(233,200,126,0.3)',
           }}
         >
           대회 시작 // START

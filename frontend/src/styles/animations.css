@@ -16,13 +16,6 @@
   100% { transform: translate(var(--dx), var(--dy)) scale(0.1); opacity: 0; }
 }
 
-/* 회전 광선 — --rot 으로 각도 주입 */
-@keyframes hgpRay {
-  0% { transform: translate(-50%, -50%) rotate(var(--rot)) scaleY(0.2); opacity: 0; }
-  25% { opacity: 0.9; }
-  100% { transform: translate(-50%, -50%) rotate(var(--rot)) scaleY(1.4); opacity: 0; }
-}
-
 /* 금화 낙하 */
 @keyframes hgpCoinFall {
   0% { transform: translateY(-12vh) rotate(0deg); opacity: 1; }
@@ -37,22 +30,23 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* 골드 글로우 왕복 */
-@keyframes hgpGoldGlow {
-  0%, 100% { filter: drop-shadow(0 0 16px rgba(245, 198, 74, 0.55)); }
-  50% { filter: drop-shadow(0 0 36px rgba(255, 180, 60, 0.95)); }
+/* 추첨 무대 오버레이 등장 */
+@keyframes hgpStageIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* 금액 공개 — 영상에서 뚜껑이 열리는 순간 튀어오른다 */
+@keyframes hgpPrizePop {
+  0% { transform: scale(0.72); opacity: 0; }
+  55% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* 플래시 */
 @keyframes hgpFlash {
   0% { opacity: 0.95; }
   100% { opacity: 0; }
-}
-
-/* 펄스 */
-@keyframes hgpPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
 }
 
 /* 접근성: 모션 최소화 설정 시 무한 반복 애니메이션 정지 */

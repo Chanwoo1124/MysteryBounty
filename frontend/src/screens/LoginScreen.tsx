@@ -5,7 +5,7 @@ import { ApiError } from '@/api/client';
 
 /**
  * 관리자 전용 로그인 (회원가입 없음).
- * 이 화면만 HGP 레드·블루·블랙 브랜드 무드를 쓰고, 나머지 화면은 골드/보물상자 무드다.
+ * 현황판과 같은 잉크·크림·골드 팔레트(board-skin)를 쓴다.
  */
 export function LoginScreen() {
   const navigate = useNavigate();
@@ -30,17 +30,28 @@ export function LoginScreen() {
     }
   };
 
-  const inputStyle = (accent: string) => ({
+  const inputStyle = {
     width: '100%',
-    padding: '16px 18px',
-    background: 'var(--surface-input-login)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderLeft: `3px solid ${accent}`,
-    color: 'var(--text-login)',
-    fontFamily: 'var(--font)',
-    fontSize: 15,
+    padding: '15px 17px',
+    background: 'var(--surface-input)',
+    border: '1px solid var(--gold-border)',
+    color: 'var(--text)',
+    fontFamily: 'var(--font-kr)',
+    fontSize: 16,
     fontWeight: 600,
-  });
+  } as const;
+
+  // 라벨은 한 단계 물러선 크림 — 골드는 상단 획·포커스·LOGIN 버튼에만 쓴다
+  const labelStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 9,
+    fontFamily: 'var(--font-kr)',
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    color: 'var(--text-dim)',
+  } as const;
 
   return (
     <div
@@ -51,42 +62,51 @@ export function LoginScreen() {
         justifyContent: 'center',
         position: 'relative',
         minHeight: 640,
-        background: 'var(--bg-login)',
+        padding: 24,
       }}
     >
-      {/* 배경 장식: 좌상단 레드 / 우하단 블루 그라데이션 */}
-      <div
+      {/* 배경 장식: 바닥에 깔린 거대한 로고 워터마크 (현황판 배경과 같은 수법) */}
+      <img
+        src="/assets/hgp-logo.png"
+        alt=""
         style={{
           position: 'absolute',
-          top: 0,
-          left: '-10%',
-          width: '55%',
-          height: '100%',
-          background: 'linear-gradient(115deg, rgba(217,30,42,0.14) 0%, rgba(217,30,42,0) 55%)',
+          left: '-4%',
+          bottom: '6%',
+          width: 420,
+          opacity: 0.04,
+          filter: 'grayscale(1) brightness(2.4)',
           pointerEvents: 'none',
         }}
       />
+      {/* 우상단 스피드 라인 — 브랜드 모티프는 남기고 색만 골드 계열로 */}
       <div
         style={{
           position: 'absolute',
-          bottom: 0,
-          right: '-10%',
-          width: '55%',
-          height: '100%',
-          background: 'linear-gradient(295deg, rgba(27,79,156,0.16) 0%, rgba(27,79,156,0) 55%)',
+          top: '13%',
+          right: '9%',
+          display: 'flex',
+          gap: 14,
           pointerEvents: 'none',
         }}
-      />
-      {/* 우상단 스피드 라인 */}
-      <div style={{ position: 'absolute', top: '12%', right: '8%', display: 'flex', gap: 14 }}>
-        {['#D91E2A', '#D91E2A', '#1B4F9C'].map((c, i) => (
-          <div key={i} style={{ width: 10, height: 120, background: c, transform: 'skewX(-24deg)' }} />
+      >
+        {[0.5, 0.28, 0.12].map((o, i) => (
+          <div
+            key={i}
+            style={{
+              width: 8,
+              height: 118,
+              background: 'var(--gold)',
+              opacity: o,
+              transform: 'skewX(-24deg)',
+            }}
+          />
         ))}
       </div>
 
       <div
         style={{
-          width: 400,
+          width: 'min(404px, 100%)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -96,16 +116,17 @@ export function LoginScreen() {
         <img
           src="/assets/hgp-logo.png"
           alt="HOLD'EM GRAND PRIX"
-          style={{ width: 280, marginBottom: 14 }}
+          style={{ width: 252, marginBottom: 12, mixBlendMode: 'screen' }}
         />
         <div
           style={{
             fontStyle: 'italic',
             fontWeight: 800,
-            fontSize: 13,
+            fontSize: 12,
             letterSpacing: '0.34em',
-            color: 'rgba(245,245,247,0.55)',
-            marginBottom: 42,
+            textIndent: '0.34em',
+            color: 'var(--gold-dark)',
+            marginBottom: 34,
           }}
         >
           MYSTERY BOUNTY SYSTEM
@@ -113,65 +134,98 @@ export function LoginScreen() {
 
         <form
           onSubmit={handleSubmit}
-          style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}
+          style={{
+            position: 'relative',
+            width: '100%',
+            background: 'var(--surface-card)',
+            border: '1px solid var(--gold-border)',
+            padding: '30px 32px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+            boxShadow: '0 24px 70px rgba(0,0,0,0.65)',
+          }}
         >
-          <input
-            type="text"
-            placeholder="관리자 아이디"
-            value={id}
-            onChange={(e) => setId(e.target.value)}
-            style={inputStyle('var(--red-login)')}
+          {/* 상단 골드 획 — 당첨자 정보 창과 같은 모티프 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 2,
+              background:
+                'linear-gradient(90deg, var(--gold), rgba(233,200,126,0.2) 62%, transparent)',
+            }}
           />
-          <input
-            type="password"
-            placeholder="비밀번호"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            style={inputStyle('var(--blue)')}
-          />
+
+          <label style={labelStyle}>
+            관리자 아이디
+            <input
+              className="field-input"
+              type="text"
+              autoComplete="username"
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+              disabled={busy}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={labelStyle}>
+            비밀번호
+            <input
+              className="field-input"
+              type="password"
+              autoComplete="current-password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              disabled={busy}
+              style={inputStyle}
+            />
+          </label>
+
+          {/* 오류는 팔레트와 별개인 경고 신호라 빨강을 그대로 쓴다 */}
           {error && (
             <div
+              role="alert"
               style={{
                 fontFamily: 'var(--font-kr)',
                 fontSize: 13,
                 fontWeight: 600,
-                color: '#EF3340',
-                textAlign: 'center',
+                lineHeight: 1.5,
+                color: 'var(--red-bright)',
+                background: 'rgba(200,30,46,0.08)',
+                borderLeft: '2px solid var(--red)',
+                padding: '10px 12px',
               }}
             >
               {error}
             </div>
           )}
+
           <button
             type="submit"
-            className="skew"
+            className="btn-gold skew"
             disabled={busy}
             style={{
-              marginTop: 14,
-              padding: 17,
-              background: 'var(--red-login)',
-              border: 'none',
-              color: '#FFFFFF',
-              fontStyle: 'italic',
-              fontWeight: 900,
-              fontSize: 17,
-              letterSpacing: '0.14em',
+              marginTop: 6,
+              padding: 16,
+              fontSize: 16,
               cursor: busy ? 'wait' : 'pointer',
               opacity: busy ? 0.7 : 1,
-              boxShadow: '0 4px 24px rgba(217,30,42,0.35)',
-              transition: 'all 0.15s',
             }}
           >
-            <span className="unskew">LOGIN //</span>
+            <span className="unskew">{busy ? 'SIGNING IN…' : 'LOGIN //'}</span>
           </button>
         </form>
 
         <div
           style={{
-            marginTop: 26,
+            marginTop: 22,
             fontSize: 12,
             fontWeight: 500,
-            color: 'rgba(245,245,247,0.35)',
+            color: 'var(--text-faint)',
             fontFamily: 'var(--font-kr)',
           }}
         >

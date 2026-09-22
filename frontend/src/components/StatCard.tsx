@@ -28,7 +28,7 @@ export function StatCard({ label, children, accent, accentSide = 'left' }: StatC
           fontSize: 11,
           fontWeight: 700,
           letterSpacing: '0.16em',
-          color: 'rgba(247,241,227,0.45)',
+          color: 'var(--text-faint)',
         }}
       >
         {label}

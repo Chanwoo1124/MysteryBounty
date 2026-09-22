@@ -51,9 +51,20 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
+/*
+ * 화면 하나가 눈에 보이는 영역을 꽉 채우게 한다.
+ * 100vh 는 주소창/툴바가 접혔다 펴지는 브라우저에서 실제 보이는 높이보다 클 수 있어
+ * dvh 를 우선 쓰고, 지원하지 않는 브라우저는 vh 로 떨어진다.
+ */
+.screen-fill {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* 앱 셸 */
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-base-radial);
   display: flex;
   flex-direction: column;
@@ -74,9 +85,59 @@ input[type='number'] {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  padding: var(--gold-text-pad);
 }
 .gold-text-sm {
   background: var(--gold-text-gradient-sm);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding: var(--gold-text-pad);
+}
+
+/*
+ * 입체 금속 숫자 — 글자를 두 겹 겹쳐 3D 압출(extrusion)을 흉내낸다.
+ *
+ * background-clip:text 로 칠한 글자 위에는 text-shadow 가 덮여서 두께를 그릴 수 없다.
+ * (그라데이션은 배경 레이어라 text-shadow 보다 아래에 깔린다)
+ * 그래서 뒤쪽에 두께 전용 글자(.gold-3d__depth)를 한 장 깔고, 그 위에 그라데이션
+ * 글자(.gold-3d__face)를 정확히 겹쳐 올린다. 앞 글자에 가려지지 않고 삐져나온
+ * 부분만 보이므로 그게 곧 '옆면'이 된다.
+ *
+ * --gold-3d-depth: 한 층의 간격. em 이라 글자 크기를 따라 두께가 같이 커진다.
+ */
+.gold-3d {
+  --gold-3d-depth: 0.006em;
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+}
+.gold-3d__depth,
+.gold-3d__face {
+  display: block;
+  padding: var(--gold-text-pad);
+  white-space: pre;
+}
+/*
+ * 옆면: 아래-오른쪽으로 4층을 쌓고, 멀어질수록 어둡게 해 깊이를 만든다.
+ * 층을 더 쌓으면 두꺼워 보이지만 작은 글자에서 획 사이가 메워진다 → 4층에서 멈춘다.
+ */
+.gold-3d__depth {
+  position: absolute;
+  inset: 0;
+  color: #96600d;
+  text-shadow:
+    calc(var(--gold-3d-depth) * 1) calc(var(--gold-3d-depth) * 1.2) 0 #86550b,
+    calc(var(--gold-3d-depth) * 2) calc(var(--gold-3d-depth) * 2.4) 0 #6d430a,
+    calc(var(--gold-3d-depth) * 3) calc(var(--gold-3d-depth) * 3.6) 0 #553407,
+    calc(var(--gold-3d-depth) * 4) calc(var(--gold-3d-depth) * 4.8) 0 #3d2504,
+    /* 바닥에 떨어지는 그림자 — 숫자가 배경에서 떠 보이게 한다 */ 0 calc(var(--gold-3d-depth) * 6)
+      calc(var(--gold-3d-depth) * 4) rgba(0, 0, 0, 0.55);
+}
+/* 앞면: 기존 골드 그라데이션 그대로 */
+.gold-3d__face {
+  position: relative;
+  background: var(--gold-text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -135,6 +196,10 @@ input[type='number'] {
 .btn-gold:active {
   transform: scale(0.98);
 }
+/* 기울인 골드 버튼 — 위 :active 가 transform 을 통째로 덮어써서 기울기가 풀린다 */
+.btn-gold.skew:active {
+  transform: skewX(-12deg) scale(0.98);
+}
 
 .btn-gold-outline {
   background: transparent;
@@ -163,4 +228,104 @@ input[type='number'] {
 }
 .btn-red-tint:hover {
   background: rgba(200, 30, 46, 0.3);
+}
+
+/*
+ * 입력 칸 — 전역 input 규칙이 outline 을 지워서 기본 포커스 표시가 없다.
+ * 키보드로 칸을 옮길 때 지금 어디에 있는지 보이도록 골드 테두리로 직접 그린다.
+ */
+.field-input {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(233, 200, 126, 0.3);
+}
+.field-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * 테두리가 바깥 상자에 있는 입력 묶음(입력 + 단위 라벨 등).
+ * 포커스는 안쪽 input 이 받으므로, 상자 쪽에서 :focus-within 으로 되받아 켠다.
+ */
+.field-group {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-group:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px rgba(233, 200, 126, 0.3);
+}
+
+/*
+ * 밑줄 입력 칸 — 상자를 걷고 아래 획만 남긴다.
+ * 포커스에서 두께를 키울 때 border 를 2px 로 바꾸면 글자가 1px 밀리므로,
+ * 그림자를 한 겹 덧대 획만 굵어 보이게 한다.
+ */
+.field-line {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-line:focus {
+  border-bottom-color: var(--gold);
+  box-shadow: 0 1px 0 0 var(--gold);
+}
+.field-line:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 골드 채움 버튼 — 외곽선 버튼들 사이에서 주 동작 하나를 끌어올린다 */
+.btn-gold-tint {
+  background: rgba(233, 200, 126, 0.12);
+  border: 1px solid var(--gold-border-strong);
+  color: var(--gold-light);
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-gold-tint:hover {
+  background: rgba(233, 200, 126, 0.2);
+  border-color: var(--gold);
+}
+
+/*
+ * 현황판 스킨 — 현황판(LiveBoard)의 잉크·크림·골드 조합.
+ *
+ * 기본 팔레트는 따뜻한 갈색(#1d1309 계열)인데 현황판은 중성 잉크(#050505)를 쓴다.
+ * 토큰만 덮어쓰면 같은 컴포넌트·유틸 클래스를 그대로 두고 화면의 색만 갈아끼울 수 있다.
+ */
+.board-skin {
+  --bg-base: #050505;
+  --surface: #0a0a0a;
+  --surface-card: #0a0a0a;
+  --surface-input: #0d0d0d;
+
+  --gold: #e9c87e;
+  --gold-light: #f2dca6;
+  --gold-lighter: #fbf8f0;
+  --gold-dark: rgba(212, 168, 84, 0.75);
+  --gold-border: rgba(212, 168, 84, 0.28);
+  --gold-border-strong: rgba(233, 200, 126, 0.7);
+
+  --text: #f3eee2;
+  --text-dim: #b9b3a6;
+  --text-dimmer: rgba(185, 179, 166, 0.72);
+  --text-faint: rgba(185, 179, 166, 0.45);
+
+  --gold-text-gradient-sm: linear-gradient(180deg, #fbf8f0, #e9c87e 60%, #c9a55e);
+
+  /* 위쪽이 살짝 밝은 중성 잉크 바탕 — 현황판 Backdrop 과 같은 값 */
+  background: radial-gradient(ellipse 80% 55% at 50% 0%, #131313, #050505 70%);
+  color: var(--text);
+}
+/* 외곽선 버튼의 테두리는 하드코딩된 따뜻한 골드라, 이 스킨에서만 잉크 쪽 골드로 맞춘다 */
+.board-skin .btn-gold-outline {
+  border-color: rgba(233, 200, 126, 0.5);
+}
+.board-skin .btn-gold-outline:hover {
+  background: rgba(233, 200, 126, 0.12);
+  border-color: var(--gold);
 }
