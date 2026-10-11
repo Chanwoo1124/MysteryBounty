@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mysterybounty.domain.DrawRecord;
-import com.example.mysterybounty.domain.DrawStatus;
 import com.example.mysterybounty.domain.Tournament;
 import com.example.mysterybounty.repository.DrawRecordRepository;
 
@@ -42,9 +41,8 @@ public class ExportService {
     public ExportResult export(Long adminId, Long tournamentId) {
         tournamentService.getOwned(adminId, tournamentId);
 
-        // 확정된 당첨 기록 전체 (추첨·수동 모두)
-        List<DrawRecord> confirmed = drawRecordRepository
-                .findByTournamentIdAndStatusOrderByDrawnAtDesc(tournamentId, DrawStatus.CONFIRMED);
+        // 당첨 기록 전체 — 기록 화면과 같은 목록을 내보낸다 (옛 PENDING 기록 포함)
+        List<DrawRecord> confirmed = drawRecordRepository.findByTournamentIdOrderByDrawnAtDesc(tournamentId);
 
         // 이름 + 전화번호 뒷자리 기준 동일인 그룹핑 (금액 합산).
         // 이름 미입력 건은 서로 다른 사람일 수 있으므로 record id 로 각각 분리한다.

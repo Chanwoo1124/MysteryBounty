@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mysterybounty.domain.DrawRecord;
 import com.example.mysterybounty.domain.PrizeTier;
+import com.example.mysterybounty.domain.Tournament;
+import com.example.mysterybounty.domain.TournamentStatus;
 import com.example.mysterybounty.dto.DrawDtos.DrawRequest;
 import com.example.mysterybounty.dto.DrawDtos.DrawResponse;
 import com.example.mysterybounty.repository.DrawRecordRepository;
@@ -37,7 +39,11 @@ public class DrawService {
     /** 뽑기 실행 — 잔여 티켓 가중 랜덤으로 결과 결정 후 당첨자 정보와 함께 즉시 확정 저장 */
     @Transactional
     public DrawResponse draw(Long adminId, Long tournamentId, DrawRequest request) {
-        tournamentService.getOwned(adminId, tournamentId);
+        Tournament tournament = tournamentService.getOwned(adminId, tournamentId);
+        // 종료 전에 열어둔 현황판에서도 뽑히지 않도록 서버에서 막는다
+        if (tournament.getStatus() == TournamentStatus.FINISHED) {
+            throw new ConflictException("종료된 대회는 추첨할 수 없습니다.");
+        }
 
         // 1. 티어들을 쓰기 락으로 조회 (동시 추첨 직렬화)
         List<PrizeTier> tiers = prizeTierRepository.findByTournamentIdForUpdate(tournamentId);

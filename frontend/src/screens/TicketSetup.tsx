@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
 import { StatCard } from '@/components/StatCard';
 import { Amount } from '@/components/Amount';
 import { manToWon } from '@/lib/format';
 import { ApiError } from '@/api/client';
+import { LoadErrorBanner, loadErrorMessage } from '@/components/LoadErrorBanner';
+
+/** 입력 자릿수 상한 — 금액 999억(만원 단위 7자리), 개수 99만 9,999장 */
+const MAX_DIGITS = { amount: 7, count: 6 } as const;
 
 /**
  * 바운티 풀 구성 — 금액×개수 쌍을 입력한다.
@@ -12,32 +16,63 @@ import { ApiError } from '@/api/client';
  */
 export function TicketSetup() {
   const navigate = useNavigate();
-  const { rows, setRows, currentTournamentId, loadTiersIntoRows, saveAndStart } = useBounty();
+  const {
+    rows,
+    setRows,
+    currentTournamentId,
+    tournaments,
+    loadTournaments,
+    loadTiersIntoRows,
+    saveAndStart,
+  } = useBounty();
   const [busy, setBusy] = useState(false);
+  /**
+   * 기존 구성을 불러왔는지 — 불러오기 전(또는 실패)에 저장하면 빈 구성으로 덮어써
+   * 서버의 티켓 구성이 통째로 지워지므로, 불러오기에 성공해야 시작 버튼을 연다.
+   */
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
-  // 선택된 대회가 없으면 목록으로. 있으면 기존 티어를 입력 폼에 채운다.
+  const current = tournaments.find((t) => Number(t.id) === currentTournamentId);
+
+  const load = useCallback(() => {
+    setLoaded(false);
+    setLoadError('');
+    // 대회 목록은 상태(종료 여부) 확인용 — 새로고침으로 들어오면 비어 있다
+    Promise.all([loadTiersIntoRows(), loadTournaments()])
+      .then(() => setLoaded(true))
+      .catch((err) => setLoadError(loadErrorMessage(err)));
+  }, [loadTiersIntoRows, loadTournaments]);
+
+  // 선택된 대회가 없으면 목록으로. 있으면 기존 티어를 입력 폼에 채운다. (401 은 스토어가 처리)
   useEffect(() => {
     if (!currentTournamentId) {
       navigate('/dashboard');
       return;
     }
-    loadTiersIntoRows().catch((err) => {
-      if (err instanceof ApiError && err.status === 401) navigate('/login');
-    });
-  }, [currentTournamentId, loadTiersIntoRows, navigate]);
+    load();
+  }, [currentTournamentId, load, navigate]);
 
   const totalCount = rows.reduce((a, r) => a + r.count, 0);
   const totalPrize = rows.reduce((a, r) => a + manToWon(r.amount) * r.count, 0);
 
   const updateRow = (index: number, field: 'amount' | 'count', value: string) => {
     // 숫자 이외 문자·앞자리 0 제거 후 정수로 변환 (빈 값은 0)
-    const digits = value.replace(/[^0-9]/g, '');
+    // 너무 큰 수는 서버 숫자 범위를 넘으므로 자릿수를 자른다
+    const digits = value.replace(/[^0-9]/g, '').slice(0, MAX_DIGITS[field]);
     const parsed = digits === '' ? 0 : parseInt(digits, 10);
     setRows(rows.map((r, i) => (i === index ? { ...r, [field]: parsed } : r)));
   };
 
   const start = async () => {
-    if (busy) return;
+    if (busy || !loaded) return;
+    // 종료된 대회는 시작 버튼이 곧 재개다 — 모르고 다시 열지 않도록 한 번 묻는다
+    if (
+      current?.status === '종료' &&
+      !window.confirm(`"${current.name}" 대회는 종료된 상태입니다. 저장하고 다시 진행중으로 바꿀까요?`)
+    ) {
+      return;
+    }
     setBusy(true);
     try {
       await saveAndStart();
@@ -62,6 +97,7 @@ export function TicketSetup() {
         width: '100%',
       }}
     >
+      <LoadErrorBanner message={loadError} onRetry={load} />
       <div className="screen-title-row">
         <div className="screen-title">티켓 구성</div>
         <div className="screen-title-en">BOUNTY POOL SETUP</div>
@@ -292,12 +328,12 @@ export function TicketSetup() {
         <button
           className="btn-gold"
           onClick={start}
-          disabled={busy}
+          disabled={busy || !loaded}
           style={{
             padding: 20,
             fontSize: 20,
-            opacity: busy ? 0.7 : 1,
-            cursor: busy ? 'wait' : 'pointer',
+            opacity: busy || !loaded ? 0.7 : 1,
+            cursor: busy ? 'wait' : loaded ? 'pointer' : 'not-allowed',
             boxShadow: '0 6px 28px rgba(233,200,126,0.3)',
           }}
         >

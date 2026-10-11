@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.mysterybounty.domain.DrawRecord;
-import com.example.mysterybounty.domain.DrawStatus;
 import com.example.mysterybounty.domain.PrizeTier;
 import com.example.mysterybounty.dto.RecordDtos.ListResponse;
 import com.example.mysterybounty.dto.RecordDtos.Response;
@@ -30,20 +29,20 @@ public class RecordService {
 
     /**
      * 당첨 기록 목록 + 통계.
-     * 확정(CONFIRMED) 기록만 노출한다 — 새 추첨은 전부 확정이고, PENDING 은 옛 데이터뿐이다.
+     * 상태와 무관하게 전부 노출한다. 새 추첨은 전부 확정(CONFIRMED)이지만, 2단계 추첨 시절의
+     * 확인 대기(PENDING) 기록도 티켓은 이미 차감돼 있다 — 숨기면 되돌리기(티켓 복구)를 할 길이 없다.
      * 각 기록은 화면에서 당첨자 정보 입력·수정·삭제(되돌리기)가 가능하다.
      */
     @Transactional(readOnly = true)
     public ListResponse list(Long adminId, Long tournamentId) {
         tournamentService.getOwned(adminId, tournamentId);
-        List<DrawRecord> confirmed = drawRecordRepository
-                .findByTournamentIdAndStatusOrderByDrawnAtDesc(tournamentId, DrawStatus.CONFIRMED);
+        List<DrawRecord> records = drawRecordRepository.findByTournamentIdOrderByDrawnAtDesc(tournamentId);
 
-        long totalPaid = confirmed.stream().mapToLong(DrawRecord::getAmount).sum();
-        long maxWin = confirmed.stream().mapToLong(DrawRecord::getAmount).max().orElse(0);
-        Stats stats = new Stats(totalPaid, confirmed.size(), maxWin);
+        long totalPaid = records.stream().mapToLong(DrawRecord::getAmount).sum();
+        long maxWin = records.stream().mapToLong(DrawRecord::getAmount).max().orElse(0);
+        Stats stats = new Stats(totalPaid, records.size(), maxWin);
 
-        List<Response> responses = confirmed.stream().map(recordMapper::toResponse).toList();
+        List<Response> responses = records.stream().map(recordMapper::toResponse).toList();
         return new ListResponse(stats, responses);
     }
 

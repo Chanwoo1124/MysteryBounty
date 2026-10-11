@@ -23,6 +23,7 @@ import com.example.mysterybounty.service.ExportService;
 import com.example.mysterybounty.service.ExportService.ExportResult;
 import com.example.mysterybounty.service.RecordService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -43,7 +44,7 @@ public class RecordController {
 
     @PatchMapping("/api/records/{recordId}")
     public Response update(@PathVariable Long recordId,
-                           @RequestBody UpdateRequest request) {
+                           @Valid @RequestBody UpdateRequest request) {
         return recordService.update(authService.currentAdminId(), recordId, request);
     }
 

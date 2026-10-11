@@ -41,6 +41,12 @@ public class AuthController {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.username(), request.password()));
 
+        // 로그인 전에 쓰던 세션이 있으면 ID 를 바꾼다 (세션 고정 공격 방지)
+        // 직접 인증하는 구조라 Spring Security 의 자동 세션 교체가 적용되지 않는다
+        if (httpRequest.getSession(false) != null) {
+            httpRequest.changeSessionId();
+        }
+
         // 인증 성공 → SecurityContext 를 세션에 저장 (세션 쿠키 발급)
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);

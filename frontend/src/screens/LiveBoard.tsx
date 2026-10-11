@@ -14,6 +14,7 @@ import { Amount } from '@/components/Amount';
 import { DrawStage } from '@/components/DrawStage';
 import { DrawEntryModal } from '@/components/DrawEntryModal';
 import { ApiError } from '@/api/client';
+import { LoadErrorBanner, loadErrorMessage } from '@/components/LoadErrorBanner';
 
 /**
  * 현황판 무대 크기 — 시안과 같은 비율(16:9)로 고정하고 화면에 맞춰 통째로 배율만 바꾼다.
@@ -58,17 +59,22 @@ export function LiveBoard() {
   const [stageAmount, setStageAmount] = useState(0);
   /** 추첨 1회마다 증가 — 같은 금액이 연달아 나와도 연출을 다시 돌린다 */
   const [runKey, setRunKey] = useState(0);
+  const [loadError, setLoadError] = useState('');
+
+  const load = useCallback(() => {
+    setLoadError('');
+    loadBoard().catch((err) => setLoadError(loadErrorMessage(err)));
+  }, [loadBoard]);
 
   // 진입 시 현황을 불러온다. (같은 기기에서 추첨하므로 별도 폴링 없이 액션 직후 재조회로 충분)
+  // 401 은 스토어가 로그인 상태를 내려 로그인 화면으로 보낸다
   useEffect(() => {
     if (!currentTournamentId) {
       navigate('/dashboard');
       return;
     }
-    loadBoard().catch((err) => {
-      if (err instanceof ApiError && err.status === 401) navigate('/login');
-    });
-  }, [currentTournamentId, loadBoard, navigate]);
+    load();
+  }, [currentTournamentId, load, navigate]);
 
   /**
    * 추첨 — 입력 창에서 이름·전화번호 뒷자리를 받으면 실행된다.
@@ -378,6 +384,7 @@ export function LiveBoard() {
        * 추첨 연출은 현황판 위를 덮는 레이어다 (페이지 이동 없음).
        * position:fixed 라 transform 이 걸린 무대 안에 두면 기준이 무대로 바뀐다 — 반드시 바깥에 둔다.
        */}
+      <LoadErrorBanner message={loadError} onRetry={load} />
       <DrawEntryModal
         open={entryOpen}
         busy={drawing}

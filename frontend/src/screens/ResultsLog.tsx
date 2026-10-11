@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
 import { StatCard } from '@/components/StatCard';
 import { Amount } from '@/components/Amount';
 import { ApiError } from '@/api/client';
+import { LoadErrorBanner, loadErrorMessage } from '@/components/LoadErrorBanner';
 import type { WinRecord } from '@/lib/types';
 
 /** 전화번호 뒷자리 입력 — 숫자만, 최대 4자리 */
@@ -11,25 +12,30 @@ const toPhoneLast4 = (v: string) => v.replace(/\D/g, '').slice(0, 4);
 
 /**
  * 당첨 기록 — 추첨할 때 입력한 이름·전화번호 뒷자리와 함께 자동으로 목록에 오르고,
- * 각 행마다 이름·전화번호 뒷자리·상금을 수정하고 삭제(되돌리기)할 수 있다.
+ * 각 행마다 이름·전화번호 뒷자리를 수정하고 삭제(되돌리기)할 수 있다.
  *
  * 기록은 추첨으로만 생긴다. 직접 추가하면 금액대 잔여가 줄지 않아 현황판과 어긋나므로
- * 수동 추가 기능은 두지 않는다. (금액을 잘못 뽑았으면 행에서 상금을 고치거나 되돌린다)
+ * 수동 추가 기능은 두지 않는다. (금액을 잘못 뽑았으면 행을 되돌린 뒤 다시 뽑는다)
  */
 export function ResultsLog() {
   const navigate = useNavigate();
   const { winRecords, stats, currentTournamentId, loadRecords, exportRecords } = useBounty();
 
-  // 진입 시 기록을 불러온다.
+  const [loadError, setLoadError] = useState('');
+
+  const load = useCallback(() => {
+    setLoadError('');
+    loadRecords().catch((err) => setLoadError(loadErrorMessage(err)));
+  }, [loadRecords]);
+
+  // 진입 시 기록을 불러온다. (401 은 스토어가 로그인 화면으로 보낸다)
   useEffect(() => {
     if (!currentTournamentId) {
       navigate('/dashboard');
       return;
     }
-    loadRecords().catch((err) => {
-      if (err instanceof ApiError && err.status === 401) navigate('/login');
-    });
-  }, [currentTournamentId, loadRecords, navigate]);
+    load();
+  }, [currentTournamentId, load, navigate]);
 
   const handleExport = () => {
     exportRecords().catch((err) => {
@@ -48,6 +54,7 @@ export function ResultsLog() {
         width: '100%',
       }}
     >
+      <LoadErrorBanner message={loadError} onRetry={load} />
       <div className="screen-title-row" style={{ marginBottom: 18 }}>
         <button
           className="btn-gold-outline"

@@ -22,6 +22,22 @@ export class ApiError extends Error {
 const OFFLINE = 0;
 const OFFLINE_MESSAGE = '백엔드 서버에 연결하지 못했습니다. 서버가 켜져 있는지 확인해주세요.';
 
+/*
+ * 세션 만료(401) 알림 — 스토어가 등록해서 로그인 상태를 내린다.
+ * 화면이 401 을 받고 /login 으로 보내도 스토어의 authed 가 true 로 남아 있으면
+ * /login 라우트가 다시 /dashboard 로 돌려보내 둘 사이를 무한히 오간다. 그래서 여기서 한 번에 잡는다.
+ */
+let unauthorizedHandler: (() => void) | null = null;
+
+export function onUnauthorized(handler: (() => void) | null) {
+  unauthorizedHandler = handler;
+}
+
+function notifyUnauthorized(path: string, status: number) {
+  // 로그인 요청의 401 은 비밀번호 오류이지 세션 만료가 아니다
+  if (status === 401 && path !== '/api/auth/login') unauthorizedHandler?.();
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -55,6 +71,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!res.ok) {
+    notifyUnauthorized(path, res.status);
     throw new ApiError(res.status, data?.error ?? '요청을 처리하지 못했습니다.');
   }
   return data as T;
@@ -207,6 +224,7 @@ export const api = {
         throw new ApiError(OFFLINE, OFFLINE_MESSAGE);
       }
       if (!res.ok) {
+        notifyUnauthorized('', res.status);
         throw new ApiError(res.status, '엑셀 다운로드에 실패했습니다.');
       }
       const blob = await res.blob();
@@ -215,8 +233,11 @@ export const api = {
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      // 바로 해제하면 Safari/Firefox 는 다운로드가 시작되기 전에 파일을 잃는다 — 잠시 뒤에 해제한다
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
   },
 };

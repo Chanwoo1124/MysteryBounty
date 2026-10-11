@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
  *
  * 입력값은 추첨 요청에 함께 실려 서버가 당첨 기록에 바로 저장한다.
  * 다만 둘 다 선택 입력이다 — 현장이 급하면 비운 채로 바로 뽑고 당첨 기록 화면에서 채워 넣는다.
- * (전화번호는 넣는다면 4자리를 다 채워야 한다. 1~3자리만 적힌 채로 저장되면 쓸모가 없다)
+ * (전화번호를 적다 만 채로 뽑아도 저장된다 — 당첨 기록 화면에서 4자리로 고쳐 넣는다)
  */
 
 interface DrawEntryModalProps {

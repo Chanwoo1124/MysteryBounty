@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -18,6 +19,7 @@ import type {
 import { manToWon } from '@/lib/format';
 import {
   api,
+  onUnauthorized,
   type RecordRes,
   type TournamentStatusCode,
   type TournamentSummaryRes,
@@ -110,7 +112,7 @@ interface BountyState {
   winRecords: WinRecord[];
   stats: { totalPaid: number; drawCount: number; maxWin: number };
   loadRecords: () => Promise<void>;
-  /** 기록 1건의 당첨자 정보·상금 수정 */
+  /** 기록 1건의 당첨자 정보 수정 */
   updateRecord: (recordId: number, input: RecordInput) => Promise<void>;
   /** 기록 1건 삭제 (추첨 기록이면 티켓 복구) */
   deleteRecord: (recordId: number) => Promise<void>;
@@ -122,6 +124,12 @@ const BountyContext = createContext<BountyState | null>(null);
 export function BountyProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
+
+  // 어느 요청이든 401(세션 만료)을 받으면 로그인 상태를 내려 로그인 화면에 머물게 한다
+  useEffect(() => {
+    onUnauthorized(() => setAuthed(false));
+    return () => onUnauthorized(null);
+  }, []);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [currentTournamentId, setCurrentId] = useState<number | null>(readCurrentId);
@@ -170,17 +178,26 @@ export function BountyProvider({ children }: { children: ReactNode }) {
     setTournaments((await api.tournament.list()).map(toTournament));
   }, []);
 
-  const selectTournament = useCallback((id: number) => {
-    sessionStorage.setItem(CURRENT_KEY, String(id));
-    setCurrentId(id);
-  }, []);
+  const selectTournament = useCallback(
+    (id: number) => {
+      sessionStorage.setItem(CURRENT_KEY, String(id));
+      // 다른 대회로 바뀌면 이전 대회 데이터를 비운다 — 불러오기가 늦거나 실패해도
+      // 이전 대회 숫자가 남아 보이거나, 이전 대회 티켓 구성이 새 대회에 저장되는 일을 막는다
+      if (id !== currentTournamentId) {
+        setRows([]);
+        setTiers([]);
+        setRecords([]);
+        setStats({ totalPaid: 0, drawCount: 0, maxWin: 0 });
+      }
+      setCurrentId(id);
+    },
+    [currentTournamentId],
+  );
 
   const createTournament = useCallback(
     async (name: string) => {
       const created = await api.tournament.create(name);
       selectTournament(created.id);
-      setRows([]);
-      setTiers([]);
     },
     [selectTournament],
   );
@@ -253,7 +270,9 @@ export function BountyProvider({ children }: { children: ReactNode }) {
         winnerName: name,
         winnerPhone: phoneLast4,
       });
-      await loadBoard();
+      // 추첨은 이미 서버에 확정됐다. 여기서 재조회가 실패해도 추첨 실패로 알리면
+      // 진행자가 다시 눌러 한 사람에게 두 번 뽑히므로, 재조회 실패는 삼키고 결과를 그대로 돌려준다
+      await loadBoard().catch(() => undefined);
       return { amount: res.amount, drawId: res.drawId };
     },
     [currentTournamentId, loadBoard],
@@ -267,7 +286,7 @@ export function BountyProvider({ children }: { children: ReactNode }) {
     setStats(res.stats);
   }, [currentTournamentId]);
 
-  /** 기록 1건의 당첨자 정보·상금 수정 (PATCH) */
+  /** 기록 1건의 당첨자 정보 수정 (PATCH) */
   const updateRecord = useCallback(
     async (recordId: number, input: RecordInput) => {
       await api.record.update(recordId, {

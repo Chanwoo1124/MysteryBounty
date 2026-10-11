@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBounty } from '@/store/BountyStore';
 import { Amount } from '@/components/Amount';
 import { ApiError } from '@/api/client';
+import { LoadErrorBanner, loadErrorMessage } from '@/components/LoadErrorBanner';
 import type { Tournament, TournamentStatus } from '@/lib/types';
 
 /** 상태별 컬러/라벨 매핑 */
@@ -40,12 +41,17 @@ export function TournamentDashboard() {
   // 삭제 확인 모달 대상 (null 이면 닫힘)
   const [pendingDelete, setPendingDelete] = useState<Tournament | null>(null);
 
-  // 진입 시 대회 목록을 불러온다. 미인증(401)이면 로그인으로 되돌린다.
+  const [loadError, setLoadError] = useState('');
+
+  const load = useCallback(() => {
+    setLoadError('');
+    loadTournaments().catch((err) => setLoadError(loadErrorMessage(err)));
+  }, [loadTournaments]);
+
+  // 진입 시 대회 목록을 불러온다. (401 은 스토어가 로그인 화면으로 보낸다)
   useEffect(() => {
-    loadTournaments().catch((err) => {
-      if (err instanceof ApiError && err.status === 401) navigate('/login');
-    });
-  }, [loadTournaments, navigate]);
+    load();
+  }, [load]);
 
   // 로그아웃 후 로그인 화면으로. 실패해도 세션은 정리되므로 이동한다.
   const handleLogout = async () => {
@@ -58,6 +64,7 @@ export function TournamentDashboard() {
 
   return (
     <div style={{ flex: 1, padding: '40px 48px', overflow: 'auto' }}>
+      <LoadErrorBanner message={loadError} onRetry={load} />
       <div className="screen-title-row" style={{ marginBottom: 6 }}>
         <div className="screen-title" style={{ fontSize: 34, letterSpacing: '-0.01em' }}>
           내 대회
